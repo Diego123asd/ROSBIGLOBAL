@@ -311,6 +311,44 @@ input:focus,select:focus{border-color:var(--navy);box-shadow:0 0 0 3px var(--acc
   *{transition:none!important;animation:none!important}
   nav.menu button:hover{padding-left:10px}
 }
+
+/* ---- RANKING DE VENDAS (espelho do painel original, na pele da ROS) ------- */
+.t-ranking{width:100%;table-layout:auto}
+/* NADA quebra em duas linhas — nome de vendedor tambem nao. Se faltar
+   largura, a tabela rola de lado; ela ja vive dentro de um .rolagem. */
+.t-ranking th,.t-ranking td{white-space:nowrap}
+.t-ranking td.num,.t-ranking th.r{font-variant-numeric:tabular-nums}
+/* o nome e a coluna que o olho procura: ganha o espaco que sobrar */
+.t-ranking th:nth-child(2),.t-ranking td:nth-child(2){min-width:190px;width:99%}
+.t-ranking th:nth-child(3),.t-ranking td:nth-child(3){min-width:150px}
+/* so o cabecalho da classificacao pode quebrar, para nao esticar a coluna */
+.t-ranking th:first-child{white-space:normal;line-height:1.15;font-size:11px}
+.t-ranking td,.t-ranking th{vertical-align:middle}
+.t-ranking td.c,.t-ranking th.c{text-align:center}
+.t-ranking td.fraco{color:var(--txt3)}
+.t-ranking tbody tr[data-drill]{cursor:pointer}
+.t-ranking tbody tr[data-drill]:hover{background:rgba(189,157,100,.10)}
+.t-ranking tr.total td{border-top:2px solid var(--linha2);font-weight:700;background:rgba(26,33,52,.04)}
+
+.rk-medalha{display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;font-weight:700;font-size:13px;
+  font-family:Montserrat,system-ui,sans-serif}
+.rk-m1{background:linear-gradient(135deg,#E8C766,#BD9D64);color:#1A2134}
+.rk-m2{background:linear-gradient(135deg,#D5D8DE,#AEB3BD);color:#1A2134}
+.rk-m3{background:linear-gradient(135deg,#C8895A,#9C6136);color:#fff}
+.rk-pos{color:var(--txt3);font-weight:700}
+.rk-seta{font-size:12px;font-weight:700}
+.rk-sobe{color:var(--ok)} .rk-desce{color:var(--crit)} .rk-igual{color:var(--txt3)}
+.rk-premio{display:inline-block;padding:2px 8px;border-radius:5px;
+  font-size:11px;font-weight:700;white-space:nowrap}
+.rk-pr1{background:rgba(189,157,100,.26);color:#6B5220}
+.rk-pr2{background:rgba(140,146,158,.22);color:#454A55}
+.rk-pr3{background:rgba(200,137,90,.24);color:#6D3B13}
+.btn-grupo{display:inline-flex;gap:0;border:1px solid var(--linha2);border-radius:7px;overflow:hidden}
+.btn-grupo .btn{border:0;border-radius:0;margin:0}
+.btn-grupo .btn.on{background:var(--navy);color:#fff}
+.chip{display:inline-flex;align-items:center;height:32px;padding:0 12px;
+  border:1px solid var(--linha2);border-radius:7px;font-size:13px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -780,78 +818,88 @@ function blocoConfigRanking(todos, fora, chave){
 }
 
 RENDER.vendedores = () => {
-  const todos = daUnidade(DADOS.vendedores);
-  /* Quem esta fora do ranking. Guardado por CODIGO quando existe, nunca so
-     pelo nome: colaborador homonimo entrando depois seria excluido junto sem
-     ninguem entender por que. */
-  const fora = new Set(Object.keys(CFG_PAINEL.exclusoes || {}).filter(k => CFG_PAINEL.exclusoes[k]));
-  const chave = v => String(v.cod || v.vendedor);
-  const dentro = todos.filter(v => !fora.has(chave(v)));
-  const excluidos = todos.filter(v =>  fora.has(chave(v)));
+  /* Espelho do renderVendedores do painel original do Tondin: mesma ordem de
+     colunas, mesmos criterios, mesma linha de TOTAL. So a pele e nova.
+     Os socios ja saem excluidos no 03_vendedores, por cod_usuario. */
+  const rk = DADOS.ranking || {};
+  const janela = DADOS._rkJanela || 'mensal';
+  const V = rk[janela] || {lista:[], periodo_atual:'', periodo_anterior:''};
 
-  /* A classificacao e recalculada sobre quem ficou: tirar alguem do meio faz
-     todo mundo abaixo subir uma posicao. */
-  const ranq = [...dentro].sort((a,b) => b.venda - a.venda);
-  const totalDentro = ranq.reduce((a,v)=>a+(v.venda||0),0);
-  /* O premio NAO se calcula aqui. O 03_vendedores ja aplica 150/100/50 sobre a
-     posicao na REDE, e so quando houve crescimento. Se eu recalculasse "top 3
-     do que esta na tela", filtrar uma unidade daria o top 3 daquela loja — e o
-     premio e da rede. */
-  const periodoRanking = (dentro[0] && dentro[0].periodo_atual) || '';
-  const periodoAnterior = (dentro[0] && dentro[0].periodo_anterior) || '';
+  let lista = (V.lista || []).slice();
+  if (unidadeAtiva !== 'TODAS') lista = lista.filter(v => v.filial === unidadeAtiva);
+  /* A classificacao e recontada sobre quem ficou na tela — igual ao original
+     (ranking.forEach(v,i => v._pos = i+1) depois do filtro de filial).
+     O PREMIO nao: aquele vem do SQL e e da REDE. */
+  lista.forEach((v,i) => v._pos = i+1);
 
-  const editando = !!DADOS._editandoRanking;
+  const seta = p => p > 0 ? '<span class="rk-seta rk-sobe">▲</span>'
+                  : p < 0 ? '<span class="rk-seta rk-desce">▼</span>'
+                  :         '<span class="rk-seta rk-igual">—</span>';
+  const premioTag = pr => pr >= 150 ? '<span class="rk-premio rk-pr1">R$ 150</span>'
+                        : pr >= 100 ? '<span class="rk-premio rk-pr2">R$ 100</span>'
+                        : pr >=  50 ? '<span class="rk-premio rk-pr3">R$ 50</span>' : '';
+  const medalha = p => p === 1 ? '<span class="rk-medalha rk-m1">1</span>'
+                     : p === 2 ? '<span class="rk-medalha rk-m2">2</span>'
+                     : p === 3 ? '<span class="rk-medalha rk-m3">3</span>'
+                     : `<span class="rk-pos">${p}</span>`;
+  const margemCls = m => m >= 45 ? 'v-ok' : m >= 40 ? 'v-warn' : 'v-crit';
+
+  const linhas = lista.map(v => `
+    <tr data-drill="${esc(v.nome)}">
+      <td class="c">${medalha(v._pos)}</td>
+      <td class="forte">${esc(v.nome)}</td>
+      <td>${esc(v.filial)}</td>
+      <td class="r num">${R(v.venda)}</td>
+      <td class="r num fraco">${R(v.venda_anterior)}</td>
+      <td class="r num ${v.pct_crescimento > 0 ? 'v-ok' : v.pct_crescimento < 0 ? 'v-crit' : ''}">${P(v.pct_crescimento)}</td>
+      <td class="c">${seta(v.pct_crescimento)}</td>
+      <td class="r num ${margemCls(v.margem)}">${P(v.margem)}</td>
+      <td class="c">${premioTag(v.premio)}</td>
+    </tr>`).join('');
+
+  let total = '';
+  if (lista.length > 1) {
+    const tv  = lista.reduce((a,v) => a + v.venda, 0);
+    const tva = lista.reduce((a,v) => a + v.venda_anterior, 0);
+    const tp  = tva > 0 ? (tv - tva) / tva * 100 : 0;
+    const tm  = tv > 0 ? lista.reduce((a,v) => a + v.margem * v.venda, 0) / tv : 0;
+    /* O original punha a margem debaixo da coluna da seta. Aqui ela fica na
+       coluna Margem, que e onde o olho procura. */
+    total = `<tr class="total">
+      <td></td><td class="forte">TOTAL</td><td></td>
+      <td class="r num">${R(tv)}</td>
+      <td class="r num fraco">${R(tva)}</td>
+      <td class="r num ${tp >= 0 ? 'v-ok' : 'v-crit'}">${P(tp)}</td>
+      <td class="c">${seta(tp)}</td>
+      <td class="r num ${margemCls(tm)}">${P(tm)}</td>
+      <td></td></tr>`;
+  }
 
   return `
   <div class="filtros">
-    <button class="btn sm" id="rk-config">${editando ? '✕ Fechar configuração' : '⚙ Configurar quem entra'}</button>
-    <button class="btn sm" id="rk-xls">⭳ Baixar Excel</button>
-    ${excluidos.length ? `<span class="pill p-neutro">${excluidos.length} fora do ranking</span>` : ''}
-    ${cfgSomenteLeitura ? '<span class="pill p-warn">seu perfil só visualiza</span>' : ''}
+    <label class="campo" style="margin:0"><span>Classificação</span>
+      <div class="btn-grupo">
+        <button class="btn sm ${janela==='semanal'?'on':''}" data-rk="semanal">Semanal</button>
+        <button class="btn sm ${janela==='mensal'?'on':''}"  data-rk="mensal">Mensal</button>
+      </div></label>
+    <label class="campo" style="margin:0"><span>Período atual</span>
+      <div class="chip forte">${esc(V.periodo_atual) || '—'}</div></label>
+    <label class="campo" style="margin:0"><span>Período anterior</span>
+      <div class="chip fraco">${esc(V.periodo_anterior) || '—'}</div></label>
+    <button class="btn sm" id="rk-xls" style="margin-top:18px">⭳ Baixar Excel</button>
   </div>
 
-  ${editando ? blocoConfigRanking(todos, fora, chave) : ''}
-
-  <div class="cards">
-    ${kpi('Classificados', N(ranq.length), excluidos.length?N(excluidos.length)+' fora':'')}
-    ${kpi('Venda dos classificados', R0(totalDentro))}
-    ${kpi('Ticket médio do grupo', R(ranq.length?ranq.reduce((a,v)=>a+(v.ticket_medio||0),0)/ranq.length:0))}
-  </div>
-
-  ${bloco('Ranking de vendedores' + (periodoRanking ? ' — ' + periodoRanking : ''), tabela([
-    /* Mesma ordem do painel original do Tondin: o cliente reconhece a tela
-       pela ordem das colunas, nao so pelo conteudo. */
-    {t:'#',k:'i',forte:true},{t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},
-    {t:'Venda Atual',k:'v',r:true},{t:'Venda Anterior',k:'va',r:true},
-    {t:'% Cresc.',k:'cr',r:true},{t:'▲▼',k:'seta'},{t:'Margem',k:'m',r:true},
-    {t:'Prêmio',k:'pr',r:true},
-    /* estas nao existiam no original; ficam no fim para nao mexer na leitura */
-    {t:'Ticket médio',k:'t',r:true},{t:'Itens/cupom',k:'ic',r:true},{t:'Atend.',k:'a',r:true}],
-    ranq.map((r,i)=>({
-      /* posicao da REDE, vinda do SQL. O indice da tela mudaria ao filtrar. */
-      i: (r.posicao && r.posicao <= 3)
-         ? `<span class="pill p-ok">${r.posicao}º</span>`
-         : String(r.posicao || (i+1)),
-      n:esc(r.vendedor), u:esc(r.unidade), v:R0(r.venda),
-      va: r.venda_anterior ? R0(r.venda_anterior) : '—',
-      cr: r.crescimento_pct ? P(r.crescimento_pct) : '—',
-      seta: !r.crescimento_pct ? ''
-            : (r.crescimento_pct > 0
-               ? '<span style="color:var(--ok);font-weight:700">▲</span>'
-               : '<span style="color:var(--crit);font-weight:700">▼</span>'),
-      m:P(r.margem_pct),
-      pr: r.premio ? `<span class="pill p-ok">${R0(r.premio)}</span>` : '—',
-      t:R(r.ticket_medio), ic:r.itens_por_cupom?nf2.format(r.itens_por_cupom):'—',
-      a:N(r.atendimentos),
-      _clicavel:true, _attrs:`data-drill="${esc(r.vendedor)}"`})),
-    ), 'posição e prêmio vêm do ERP, sobre a rede inteira' +
-        (periodoAnterior ? ' · comparado com ' + periodoAnterior : '') +
-        ' — clique no vendedor para abrir por categoria')}
-
-  ${excluidos.length ? bloco('Fora do ranking', tabela([
-    {t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},{t:'Venda',k:'v',r:true}],
-    excluidos.sort((a,b)=>b.venda-a.venda).map(v=>({n:esc(v.vendedor),u:esc(v.unidade),v:R0(v.venda)}))),
-    'a venda destes continua contando no faturamento — só não disputa a classificação') : ''}
+  ${bloco(`Ranking de vendas — ${janela === 'semanal' ? 'semanal' : 'mensal'}`,
+    `<div class="rolagem"><table class="t-ranking"><thead><tr>
+        <th class="c" style="width:64px">Classificação</th>
+        <th>Vendedor</th><th>Unidade</th>
+        <th class="r">Venda Atual</th><th class="r">Venda Anterior</th>
+        <th class="r">% Cresc.</th><th class="c" style="width:44px">▲▼</th>
+        <th class="r">Margem</th><th class="c" style="width:78px">Prêmio</th>
+      </tr></thead><tbody>${linhas}${total}</tbody></table></div>`,
+    lista.length
+      ? 'posição recontada sobre quem está na tela · prêmio vem do ERP, sobre a rede inteira — clique no vendedor para abrir por categoria'
+      : 'sem vendedor nesta janela')}
   <div id="drill-vendedor"></div>`;
 };
 
@@ -1473,6 +1521,28 @@ document.addEventListener('click', ev => {
   if(b.dataset.dim){ DADOS.rankings._sel = b.dataset.dim; desenhar(); return; }
   if(b.dataset.gran){ DADOS.fluxo._gran = b.dataset.gran; desenhar(); return; }
   if(b.dataset.real !== undefined){ DADOS.fluxo._real = b.dataset.real === '1'; desenhar(); return; }
+  if(b.dataset.rk){
+    DADOS._rkJanela = b.dataset.rk;
+    desenhar(); return;
+  }
+  if(b.id === 'rk-xls'){
+    const janela = DADOS._rkJanela || 'mensal';
+    const V = (DADOS.ranking || {})[janela] || {lista:[]};
+    let lista = (V.lista||[]).slice();
+    if(unidadeAtiva !== 'TODAS') lista = lista.filter(v => v.filial === unidadeAtiva);
+    lista.forEach((v,i) => v._pos = i+1);
+    baixarXLS('Ranking-' + (janela==='semanal'?'Semanal':'Mensal'), [
+      {t:'Classificação',k:'_pos'},{t:'Vendedor',k:'nome'},{t:'Unidade',k:'filial'},
+      {t:'Venda Atual',k:'venda'},{t:'Venda Anterior',k:'venda_anterior'},
+      {t:'% Cresc.',k:'pct_crescimento'},{t:'Margem',k:'margem'},{t:'Prêmio',k:'premio'}],
+      lista, {
+      titulo:'Ranking de vendas — ' + (janela==='semanal'?'semanal':'mensal'),
+      subtitulo:'Prêmio de R$ 150 / 100 / 50 para os três primeiros da rede, e só com crescimento.',
+      filtros:[{rotulo:'Período atual', valor:V.periodo_atual},
+               {rotulo:'Período anterior', valor:V.periodo_anterior},
+               {rotulo:'Unidade', valor: unidadeAtiva === 'TODAS' ? 'Todas' : unidadeAtiva}]});
+    return;
+  }
   if(b.id === 'cp-xls'){
     const cp = DADOS.contas_pagar || {};
     const filtro = cp._dia || '';
@@ -1664,11 +1734,14 @@ document.addEventListener('click', ev => {
   const tr = ev.target.closest('tr[data-drill]'); if(!tr) return;
   const nome = tr.dataset.drill;
   /* casa por nome E unidade: dois vendedores homonimos em lojas diferentes
-     abririam o mesmo drill se fosse so pelo nome */
+     abririam o mesmo drill se fosse so pelo nome. Olha a janela que esta na
+     tela — semanal e mensal tem listas diferentes. */
   const linhaUni = tr.querySelectorAll('td')[2];
   const uni = linhaUni ? linhaUni.textContent.trim() : null;
-  const v = (DADOS.vendedores||[]).find(x => x.vendedor === nome && (!uni || x.unidade === uni))
-         || (DADOS.vendedores||[]).find(x => x.vendedor === nome);
+  const jan = (DADOS.ranking || {})[DADOS._rkJanela || 'mensal'];
+  const fonte = (jan && jan.lista) || DADOS.vendedores || [];
+  const v = fonte.find(x => x.nome === nome && (!uni || x.filial === uni))
+         || fonte.find(x => x.nome === nome);
   const alvo = document.getElementById('drill-vendedor'); if(!alvo || !v) return;
   const cats = v.categorias || [];
   alvo.innerHTML = cats.length
