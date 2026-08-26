@@ -1,0 +1,2234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ROS BI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+:root{
+  /* ---- Identidade ROS Estrategia Empresarial ----
+     navy #1A2134 e dourado #BD9D64 saem do site da ROS. O dourado NAO e usado
+     para texto sobre branco (contraste ~2,3:1, ilegivel): ele marca — filete,
+     aba ativa, foco. Quem carrega texto e o navy. */
+  --navy:#1A2134; --navy-claro:#2A344E; --ouro:#BD9D64; --ouro-esc:#A48144;
+
+  --ground:#F5F6F8; --panel:#FFFFFF; --panel-2:#EEF0F4; --panel-3:#E2E6EC;
+  --ink:#1A2134; --ink-2:#414A5E; --muted:#6B7385;
+  --line:#D8DCE4; --line-2:#C2C8D4;
+  --accent:#1A2134; --accent-ink:#FFFFFF; --accent-soft:#E8EAEF;
+
+  /* barra lateral: e o elemento de marca do painel */
+  --lateral:#1A2134; --lateral-ink:#C9CEDA; --lateral-ink-forte:#FFFFFF;
+  --lateral-hover:#252F47; --lateral-linha:#2C3650;
+
+  --ok:#1B6E48; --ok-soft:#E4F0EA;
+  --warn:#8A6410; --warn-soft:#F7EFDC;
+  --crit:#A32B22; --crit-soft:#F8E6E4;
+  --shadow:0 1px 2px rgba(26,33,52,.06), 0 4px 16px rgba(26,33,52,.06);
+  --shadow-alta:0 4px 10px rgba(26,33,52,.10), 0 12px 28px rgba(26,33,52,.10);
+  --mov:.22s cubic-bezier(.4,0,.2,1);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --navy:#0E1320; --navy-claro:#1C2436; --ouro:#D4B579; --ouro-esc:#BD9D64;
+  --ground:#0D1117; --panel:#151A24; --panel-2:#1C222E; --panel-3:#242B39;
+  --ink:#E9ECF2; --ink-2:#BBC2CF; --muted:#8A93A4;
+  --line:#28303C; --line-2:#39414F;
+  --accent:#D4B579; --accent-ink:#0E1320; --accent-soft:#241E12;
+  --lateral:#0E1320; --lateral-ink:#98A1B3; --lateral-ink-forte:#FFFFFF;
+  --lateral-hover:#1C2436; --lateral-linha:#232C40;
+  --ok:#63C795; --ok-soft:#122318;
+  --warn:#D9AE60; --warn-soft:#241D10;
+  --crit:#E88B80; --crit-soft:#2A1614;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  --shadow-alta:0 6px 16px rgba(0,0,0,.5), 0 16px 36px rgba(0,0,0,.4);
+}}
+:root[data-theme="dark"]{
+  --navy:#0E1320; --navy-claro:#1C2436; --ouro:#D4B579; --ouro-esc:#BD9D64;
+  --ground:#0D1117; --panel:#151A24; --panel-2:#1C222E; --panel-3:#242B39;
+  --ink:#E9ECF2; --ink-2:#BBC2CF; --muted:#8A93A4;
+  --line:#28303C; --line-2:#39414F;
+  --accent:#D4B579; --accent-ink:#0E1320; --accent-soft:#241E12;
+  --lateral:#0E1320; --lateral-ink:#98A1B3; --lateral-ink-forte:#FFFFFF;
+  --lateral-hover:#1C2436; --lateral-linha:#232C40;
+  --ok:#63C795; --ok-soft:#122318;
+  --warn:#D9AE60; --warn-soft:#241D10;
+  --crit:#E88B80; --crit-soft:#2A1614;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  --shadow-alta:0 6px 16px rgba(0,0,0,.5), 0 16px 36px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:"Source Sans 3","Segoe UI",system-ui,sans-serif;font-size:15.5px;line-height:1.55;
+  -webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",monospace}
+.hide{display:none!important}
+
+/* ---------- LOGIN ---------- */
+#tela-login{min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--ground)}
+.card-login{width:100%;max-width:404px;background:var(--panel);border:1px solid var(--line);
+  border-radius:4px;box-shadow:var(--shadow);padding:34px 32px}
+.marca{display:flex;align-items:baseline;gap:9px;margin-bottom:4px}
+.marca b{font-family:Montserrat,sans-serif;font-weight:700;font-size:26px;letter-spacing:-.02em}
+.marca span{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent)}
+.card-login>p.sub{color:var(--muted);font-size:14.5px;margin:0 0 26px}
+label.campo{display:block;margin-bottom:15px}
+label.campo>span{display:block;font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+input[type=text],input[type=email],input[type=password],input[type=date],input[type=number],select{
+  width:100%;padding:9px 11px;background:var(--ground);border:1px solid var(--line-2);
+  border-radius:3px;outline:none}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;
+  border:1px solid var(--line-2);background:var(--panel);border-radius:3px;cursor:pointer;
+  font-weight:600;font-size:14.5px}
+.btn:hover{background:var(--panel-2)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primario{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);width:100%;padding:11px}
+.btn.primario:hover{filter:brightness(1.08)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.link{background:none;border:none;color:var(--accent);cursor:pointer;font-weight:600;padding:0;font-size:14.5px}
+.aviso{padding:10px 12px;border-radius:3px;font-size:14px;margin-bottom:16px}
+.aviso.erro{background:var(--crit-soft);color:var(--crit);border:1px solid var(--crit)}
+.aviso.ok{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}
+.aviso.info{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)}
+.dica{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.dica code{font-family:"IBM Plex Mono",monospace;background:var(--panel-2);padding:1px 5px;border-radius:2px}
+
+/* ---------- APP ---------- */
+#app{display:grid;grid-template-columns:236px 1fr;min-height:100dvh}
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;
+  position:sticky;top:0;height:100dvh;overflow-y:auto}
+aside .topo{padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+nav.menu{padding:10px 8px;flex:1}
+nav.menu button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 10px;
+  border:none;background:none;border-radius:3px;cursor:pointer;color:var(--ink-2);font-size:14.5px}
+nav.menu button:hover{background:var(--panel-2);color:var(--ink)}
+nav.menu button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+nav.menu button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+nav.menu .grupo{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);padding:16px 10px 5px}
+nav.menu .ic{width:17px;text-align:center;flex:none;opacity:.75}
+aside .rodape{padding:12px 16px;border-top:1px solid var(--line);font-size:13px}
+main{min-width:0;display:flex;flex-direction:column}
+header.barra{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+  padding:11px 22px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+header.barra h1{font-family:Montserrat,sans-serif;font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em;
+  flex:1 1 auto;min-width:120px}
+.selo{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted)}
+.conteudo{padding:22px;flex:1}
+section.modulo{display:none}
+section.modulo.on{display:block}
+
+/* filtros */
+.filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:3px;overflow:hidden;background:var(--panel)}
+.seg button{border:none;background:none;padding:7px 13px;cursor:pointer;font-size:14px;color:var(--ink-2);
+  border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:12px;margin-bottom:20px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px 16px;box-shadow:var(--shadow)}
+.kpi .rot{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
+.kpi .val{font-family:Montserrat,sans-serif;font-size:25px;font-weight:600;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;line-height:1.15}
+.kpi .pe{font-size:13px;color:var(--muted);margin-top:3px}
+.kpi.bom .val{color:var(--ok)} .kpi.ruim .val{color:var(--crit)} .kpi.alerta .val{color:var(--warn)}
+
+/* tabelas */
+.bloco{background:var(--panel);border:1px solid var(--line);border-radius:4px;margin-bottom:20px;
+  box-shadow:var(--shadow);overflow:hidden}
+.bloco>h3{font-family:Montserrat,sans-serif;font-size:15.5px;font-weight:600;margin:0;padding:13px 16px;
+  border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.bloco>h3 .obs{font-family:"Source Sans 3",sans-serif;font-weight:400;font-size:13px;color:var(--muted)}
+.rolagem{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14.5px}
+th{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 14px;background:var(--panel-2);
+  border-bottom:1px solid var(--line-2);white-space:nowrap;position:sticky;top:0}
+th.r,td.r{text-align:right}
+td{padding:8px 14px;border-bottom:1px solid var(--line);color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+td.forte{color:var(--ink);font-weight:600}
+tbody tr.clicavel{cursor:pointer}
+tbody tr.clicavel:hover{background:var(--panel-2)}
+tr.total td{background:var(--panel-2);font-weight:600;color:var(--ink);border-top:1px solid var(--line-2)}
+tr.filha td{background:var(--panel-2);font-size:13.5px;padding-left:34px}
+.barra-mini{height:5px;background:var(--panel-3);border-radius:3px;overflow:hidden;min-width:56px}
+.barra-mini i{display:block;height:100%;background:var(--accent)}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:600;
+  letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:2px;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)} .p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-crit{background:var(--crit-soft);color:var(--crit)} .p-neutro{background:var(--panel-3);color:var(--muted)}
+
+.vazio{padding:34px 20px;text-align:center;color:var(--muted)}
+.vazio b{display:block;color:var(--ink);font-family:Montserrat,sans-serif;font-size:16px;margin-bottom:6px}
+.grade2{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.form-linha{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding:14px 16px;
+  border-bottom:1px solid var(--line);background:var(--panel-2)}
+.form-linha label.campo{margin:0;min-width:132px;flex:0 1 auto}
+@media (max-width:860px){
+  #app{grid-template-columns:1fr}
+  aside{position:fixed;left:0;top:0;width:250px;z-index:60;transform:translateX(-100%);transition:transform .2s}
+  aside.aberta{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.4)}
+  .abrir-menu{display:inline-flex!important}
+  .conteudo{padding:16px 14px}
+}
+.abrir-menu{display:none}
+
+/* ---------- TELA EMERGENTE (drill) ---------- */
+#fundo-modal{position:fixed;inset:0;background:rgba(10,16,26,.55);z-index:80;
+  display:none;align-items:center;justify-content:center;padding:20px}
+#fundo-modal.on{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line-2);border-radius:4px;
+  box-shadow:0 12px 48px rgba(0,0,0,.3);width:min(1180px,100%);max-height:90dvh;
+  display:flex;flex-direction:column;overflow:hidden}
+.modal>header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;
+  gap:12px;align-items:center;flex-wrap:wrap;background:var(--panel-2)}
+.modal>header h4{font-family:Montserrat,sans-serif;font-size:17px;font-weight:600;margin:0;
+  letter-spacing:-.01em;flex:1 1 auto;min-width:160px}
+.modal>header .sub{font-size:13px;color:var(--muted);width:100%;margin-top:-4px}
+.modal .corpo{overflow:auto;flex:1;min-height:0}
+.modal .filtros-modal{display:flex;flex-wrap:wrap;gap:10px;padding:12px 18px;
+  border-bottom:1px solid var(--line);background:var(--panel-2);align-items:flex-end}
+.modal .filtros-modal label.campo{margin:0;min-width:158px}
+.modal .rodape-modal{padding:11px 18px;border-top:1px solid var(--line);display:flex;
+  gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel-2);font-size:13px;color:var(--muted)}
+.fechar{border:none;background:none;font-size:22px;line-height:1;cursor:pointer;
+  color:var(--muted);padding:2px 8px;border-radius:3px}
+.fechar:hover{background:var(--panel-3);color:var(--ink)}
+/* =========================================================================
+   IDENTIDADE ROS  +  MOVIMENTO
+   -------------------------------------------------------------------------
+   O movimento aqui e curto e discreto, no padrao da referencia: 0,2-0,25s em
+   transform, box-shadow e border-color. Nada de efeito no scroll. A regra e:
+   o movimento confirma que algo respondeu ao toque — nao chama atencao para
+   si. Painel que se olha 10 vezes por dia nao pode ter animacao performatica.
+   ========================================================================= */
+
+/* ---- barra lateral: e o elemento de marca ---- */
+aside{background:var(--lateral);border-right:none}
+aside .topo{border-bottom:1px solid var(--lateral-linha);padding-bottom:16px}
+aside .topo .marca b{color:var(--lateral-ink-forte)}
+aside .topo .marca span{color:var(--ouro)}
+aside .topo .selo{color:var(--lateral-ink);opacity:.75}
+nav.menu .grupo{color:var(--lateral-ink);opacity:.55}
+nav.menu button{
+  color:var(--lateral-ink);position:relative;
+  transition:background var(--mov), color var(--mov), padding-left var(--mov);
+}
+nav.menu button::before{
+  content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;
+  background:var(--ouro);border-radius:0 2px 2px 0;
+  transform:scaleY(0);transform-origin:center;
+  transition:transform var(--mov);
+}
+nav.menu button:hover{background:var(--lateral-hover);color:var(--lateral-ink-forte);padding-left:14px}
+nav.menu button.on{background:var(--lateral-hover);color:var(--lateral-ink-forte);font-weight:600}
+nav.menu button.on::before{transform:scaleY(1)}
+nav.menu button .ic{transition:transform var(--mov)}
+nav.menu button:hover .ic{transform:translateX(1px) scale(1.08)}
+aside .rodape{border-top:1px solid var(--lateral-linha);color:var(--lateral-ink)}
+aside .rodape #rod-usuario{color:var(--lateral-ink-forte)}
+aside .rodape .btn{background:transparent;border-color:var(--lateral-linha);color:var(--lateral-ink)}
+aside .rodape .btn:hover{background:var(--lateral-hover);color:var(--lateral-ink-forte);border-color:var(--ouro)}
+
+/* ---- topo: filete dourado, a assinatura da casa ---- */
+header.barra{border-bottom:1px solid var(--line);box-shadow:inset 0 -3px 0 -2px var(--ouro)}
+
+/* ---- troca de modulo: o conteudo entra, nao pisca ---- */
+@keyframes entra{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+section.modulo.on, .conteudo > *{animation:entra .26s cubic-bezier(.4,0,.2,1) both}
+
+/* ---- cartoes de indicador ---- */
+.kpi{
+  transition:transform var(--mov), box-shadow var(--mov), border-color var(--mov);
+  border-top:2px solid transparent;
+}
+.kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-alta);border-top-color:var(--ouro)}
+.kpi .val{transition:color var(--mov)}
+
+/* ---- blocos ---- */
+.bloco{transition:box-shadow var(--mov)}
+.bloco:hover{box-shadow:var(--shadow-alta)}
+.bloco>h3{border-bottom:1px solid var(--line);position:relative}
+.bloco>h3::after{
+  content:"";position:absolute;left:16px;bottom:-1px;width:26px;height:2px;background:var(--ouro);
+}
+
+/* ---- abas e filtros ---- */
+.seg button{transition:background var(--mov), color var(--mov)}
+.seg button.on{background:var(--navy);color:#fff}
+.seg button:not(.on):hover{background:var(--panel-2)}
+
+/* ---- botoes ---- */
+.btn{transition:background var(--mov), border-color var(--mov), transform .12s ease, box-shadow var(--mov)}
+.btn:hover{border-color:var(--ouro)}
+.btn:active{transform:translateY(1px)}
+.btn.primario{background:var(--navy);border-color:var(--navy)}
+.btn.primario:hover{background:var(--navy-claro);border-color:var(--ouro);box-shadow:var(--shadow-alta);filter:none}
+
+/* ---- linhas de tabela ---- */
+tbody tr{transition:background .14s ease}
+tbody tr.clicavel{position:relative}
+tbody tr.clicavel:hover{background:var(--accent-soft)}
+tbody tr.clicavel:hover td:first-child{box-shadow:inset 3px 0 0 var(--ouro)}
+th{border-bottom:2px solid var(--navy)}
+
+/* ---- barra de participacao ---- */
+.barra-mini i{background:var(--navy);transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* ---- tela emergente ---- */
+#fundo-modal{animation:fundoEntra .18s ease both}
+@keyframes fundoEntra{from{opacity:0}to{opacity:1}}
+#fundo-modal.on .modal{animation:modalEntra .24s cubic-bezier(.4,0,.2,1) both}
+@keyframes modalEntra{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+.modal>header{border-bottom:2px solid var(--ouro)}
+.fechar{transition:background var(--mov), color var(--mov), transform var(--mov)}
+.fechar:hover{transform:rotate(90deg)}
+
+/* ---- foco visivel: acessibilidade, e o dourado cai bem aqui ---- */
+:focus-visible{outline:2px solid var(--ouro);outline-offset:2px}
+
+/* ---- login ---- */
+.card-login{border-top:3px solid var(--ouro)}
+.marca b{letter-spacing:-.03em}
+input:focus,select:focus{border-color:var(--navy);box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* Quem pediu menos movimento recebe menos movimento. */
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+  nav.menu button:hover{padding-left:10px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="tela-login">
+  <div class="card-login">
+    <div class="marca"><b>ROS</b><span>BI</span></div>
+    <p class="sub" id="sub-login">Painel gerencial · acesso restrito</p>
+    <div id="msg-login"></div>
+
+    <form id="form-entrar">
+      <label class="campo"><span>E-mail</span><input type="email" id="in-email" autocomplete="username" required></label>
+      <label class="campo"><span>Senha</span><input type="password" id="in-senha" autocomplete="current-password" required></label>
+      <button class="btn primario" type="submit">Entrar</button>
+      <div class="dica">
+        Não tem acesso? <button type="button" class="link" id="ir-cadastro">Solicitar cadastro</button><br>
+        <span style="display:block;margin-top:8px">Demonstração: <code>diego@rosestrategia.com.br</code> / <code>ros2026</code></span>
+      </div>
+    </form>
+
+    <form id="form-cadastro" class="hide">
+      <label class="campo"><span>Nome completo</span><input type="text" id="c-nome" required></label>
+      <label class="campo"><span>E-mail</span><input type="email" id="c-email" required></label>
+      <label class="campo"><span>Senha</span><input type="password" id="c-senha" minlength="6" required></label>
+      <label class="campo"><span>Perfil solicitado</span><select id="c-perfil"></select></label>
+      <label class="campo"><span>Unidade</span><select id="c-unidade"></select></label>
+      <button class="btn primario" type="submit">Enviar solicitação</button>
+      <div class="dica">
+        A solicitação fica <b>pendente</b> até ser aprovada na tela de Administração.<br>
+        <button type="button" class="link" id="ir-entrar" style="margin-top:8px">Voltar para o login</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hide">
+  <aside id="lateral">
+    <div class="topo">
+      <div class="marca"><b>ROS</b><span>BI</span></div>
+      <div class="selo" id="selo-cliente">—</div>
+    </div>
+    <nav class="menu" id="menu"></nav>
+    <div class="rodape">
+      <div id="rod-usuario" style="font-weight:600"></div>
+      <div class="selo" id="rod-perfil"></div>
+      <button class="btn sm" id="btn-sair" style="margin-top:9px;width:100%">Sair</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="barra">
+      <button class="btn sm abrir-menu" id="btn-menu">☰</button>
+      <h1 id="titulo">—</h1>
+      <label class="campo" style="margin:0"><span style="margin-bottom:2px">Unidade</span>
+        <select id="sel-unidade" style="min-width:190px"></select></label>
+      <div>
+        <div class="selo">Atualizado</div>
+        <div class="mono" style="font-size:13px" id="selo-atualizado">—</div>
+      </div>
+      <button class="btn sm" id="btn-atualizar">↻ Atualizar</button>
+      <button class="btn sm" id="btn-tema" title="Alternar tema">◐</button>
+    </header>
+    <!-- Aviso de dado de demonstração. Existe porque um painel com número
+         inventado, sem aviso, é pior que painel nenhum: o cliente decide em
+         cima dele. Some sozinho quando o coletor grava dado real. -->
+    <div id="faixa-demo" class="hide" style="background:var(--warn-soft);color:var(--warn);
+      border-bottom:1px solid var(--warn);padding:9px 22px;font-weight:600;font-size:14px">
+      ⚠ Estes números são de <b>DEMONSTRAÇÃO</b>, não são da operação real.
+      Rode o <span class="mono">PRODUCAO.bat</span> na máquina que enxerga o banco do Trier.
+    </div>
+    <div class="conteudo" id="conteudo"></div>
+  </main>
+</div>
+
+<!-- tela emergente de drill -->
+<div id="fundo-modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+  <div class="modal">
+    <header>
+      <h4 id="modal-titulo">—</h4>
+      <button class="fechar" id="modal-fechar" aria-label="Fechar">×</button>
+      <div class="sub" id="modal-sub"></div>
+    </header>
+    <div class="filtros-modal" id="modal-filtros"></div>
+    <div class="corpo" id="modal-corpo"></div>
+    <div class="rodape-modal">
+      <button class="btn sm" id="modal-xls">⭳ Baixar Excel</button>
+      <span id="modal-contagem"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =============================================================================
+   ROS BI — configuração da nuvem
+   -----------------------------------------------------------------------------
+   As duas chaves aqui são PÚBLICAS por definição: a URL do projeto e a chave
+   "publishable". Elas vão dentro de qualquer painel que rode no navegador —
+   quem protege o dado é o RLS no banco, não o segredo destas linhas.
+
+   O que NUNCA pode entrar aqui: a chave service_role, a senha do banco e o
+   token do coletor. Esses três não passam pelo navegador.
+
+   Sem este arquivo (ou com url em branco) o painel roda em modo LOCAL, lendo
+   coletor/out/dados.json — que é como ele funciona na máquina do cliente.
+============================================================================= */
+const NUVEM_CONFIG = {
+  url:   "https://dwsqcajqyoktdburaygu.supabase.co",
+  chave: "sb_publishable_f8Va5mQL6tAmHocp06RScQ_20QpA5Da"
+};
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* Versao de NUVEM: sem dados de demonstracao. O dado vem do servidor, ja
+   filtrado pela permissao. Este esqueleto so evita erro no modo local. */
+const SEMENTE = { meta:{ cliente:'—', erp:'—', atualizado_em:'—', unidades:[], modulos_ativos:[] } };
+</script>
+<script>
+"use strict";
+/* =============================================================================
+   ROS BI — painel
+   -----------------------------------------------------------------------------
+   REGRA DE PROJETO: o navegador NUNCA calcula agregado. Ele só desenha.
+   Tudo que aparece aqui já vem pronto de DADOS (out/dados.json), produzido pelo
+   coletor que roda na rede do cliente. Este arquivo não soma base, não filtra
+   milhares de linhas, não agrega. Só formata e desenha.
+
+   O que ELE calcula: apenas aritmética de tela sobre números já agregados
+   (ex.: participação = linha/total) e os simuladores, que são "e se" do usuário.
+============================================================================= */
+
+/* ---------- 1. PERFIS E PERMISSÕES --------------------------------------- */
+const MODULOS = [
+  {id:'visao',      nome:'Visão Geral',        ic:'◉', grupo:'Operação'},
+  {id:'vendas',     nome:'Análise de Vendas',  ic:'▤', grupo:'Operação'},
+  {id:'meta',       nome:'Meta da Semana',     ic:'◎', grupo:'Operação'},
+  {id:'vendedores', nome:'Vendedores',         ic:'☰', grupo:'Operação'},
+  {id:'rankings',   nome:'Rankings',           ic:'⇅', grupo:'Operação'},
+  {id:'fluxo',      nome:'Fluxo de Caixa',     ic:'≈', grupo:'Financeiro'},
+  {id:'cp',         nome:'Contas a Pagar',     ic:'⊟', grupo:'Financeiro'},
+  {id:'moeda',      nome:'Moeda e Antecipação',ic:'⇄', grupo:'Financeiro'},
+  {id:'dre',        nome:'DRE',                ic:'▦', grupo:'Financeiro'},
+  {id:'estoque',    nome:'Estoque e Compras',  ic:'▣', grupo:'Compras'},
+  {id:'elast',      nome:'Elasticidade',       ic:'∿', grupo:'Compras'},
+  {id:'convenios',  nome:'Convênios',          ic:'◈', grupo:'Complementos'},
+  {id:'comissoes',  nome:'Comissões',          ic:'✦', grupo:'Complementos'},
+  {id:'admin',      nome:'Administração',      ic:'⚙', grupo:'Sistema'}
+];
+
+const PERFIS = {
+  admin_ros:  {nome:'Administrador ROS', modulos:'*', unidades:'*', descricao:'Acesso total, inclusive gestão de usuários.'},
+  proprietario:{nome:'Proprietário',     modulos:['visao','vendas','meta','vendedores','rankings','fluxo','cp','moeda','dre','estoque','elast','convenios','comissoes'], unidades:'*', descricao:'Tudo menos administração do sistema.'},
+  financeiro: {nome:'Financeiro',        modulos:['visao','fluxo','cp','moeda','dre','meta'], unidades:'*', descricao:'Caixa, contas, DRE e meta. Sem comissões e sem compras.'},
+  gerente:    {nome:'Gerente de Loja',   modulos:['visao','vendas','meta','vendedores','rankings','estoque','convenios'], unidades:'propria', descricao:'Operação da própria unidade. Sem DRE e sem fluxo consolidado.'},
+  supervisor: {nome:'Supervisor de Vendas',modulos:['visao','vendas','vendedores','rankings','meta'], unidades:'*', descricao:'Vendas e equipe, em todas as unidades. Sem financeiro.'},
+  compras:    {nome:'Compras',           modulos:['visao','estoque','elast','rankings','cp'], unidades:'*', descricao:'Estoque, ruptura, orçamento de compra e elasticidade.'}
+};
+
+function podeModulo(u, mod){
+  if(!u) return false;
+  const p = PERFIS[u.perfil]; if(!p) return false;
+  return p.modulos === '*' || p.modulos.includes(mod);
+}
+function unidadesPermitidas(u){
+  const p = PERFIS[u.perfil];
+  const todas = (DADOS.meta && DADOS.meta.unidades) || [];
+  if(p.unidades === '*') return todas;
+  return todas.filter(x => x === u.unidade);
+}
+
+/* ---------- 1b. NUVEM ----------------------------------------------------- */
+/* Dois modos, um código só:
+     NUVEM  — login de verdade no servidor, dado vindo da API. É como o cliente
+              acessa, de qualquer lugar.
+     LOCAL  — sem nuvem configurada: lê coletor/out/dados.json. É como o painel
+              roda na máquina do cliente, e como eu testo aqui.
+   O modo é decidido uma vez, na partida, e o resto do painel não sabe a
+   diferença — as telas leem sempre de DADOS. */
+let SB = null;                       // cliente Supabase, quando houver
+const naNuvem = () => SB !== null;
+
+function ligarNuvem(){
+  try{
+    if(typeof NUVEM_CONFIG === 'undefined' || !NUVEM_CONFIG.url || !NUVEM_CONFIG.chave) return null;
+    if(typeof supabase === 'undefined' || !supabase.createClient) return null;   // CDN não carregou
+    return supabase.createClient(NUVEM_CONFIG.url, NUVEM_CONFIG.chave, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+  }catch(e){ console.warn('nuvem indisponível, seguindo em modo local:', e.message); return null; }
+}
+
+/* ---------- 1c. CONFIGURACAO ---------------------------------------------
+   Tres coisas do painel sao DIGITADAS, nao vem do ERP:
+     metas      - meta de venda de cada loja (nao existe no Trier)
+     exclusoes  - quem fica fora do ranking (socios, gerentes, caixa)
+     matriculas - de-para CPF -> matricula que a conveniada manda
+
+   Elas nao podem viver no navegador: o fechamento do mes passaria a depender
+   de qual computador abriu o painel, e a base importada sumiria ao limpar o
+   cache. Na nuvem ficam no servidor; sem nuvem, caem no armazenamento local
+   como reserva — mas o painel avisa que e local. */
+let CFG_PAINEL = { metas:{}, exclusoes:{}, matriculas:{}, parametros:{} };
+let cfgSomenteLeitura = false;
+
+async function carregarConfig(){
+  if(naNuvem()){
+    try{
+      const { data, error } = await SB.rpc('config_ler');
+      if(!error && data) CFG_PAINEL = Object.assign(CFG_PAINEL, data);
+    }catch(e){ console.warn('config: leitura falhou', e.message); }
+    cfgSomenteLeitura = !['admin_ros','proprietario','financeiro'].includes(usuario && usuario.perfil);
+  } else {
+    try{
+      const j = JSON.parse(Guarda.ler('ros_bi_config') || '{}');
+      CFG_PAINEL = Object.assign(CFG_PAINEL, j);
+    }catch(e){}
+    cfgSomenteLeitura = false;
+  }
+}
+
+async function gravarConfig(chave, valor){
+  CFG_PAINEL[chave] = valor;
+  if(naNuvem()){
+    const { data, error } = await SB.rpc('config_gravar', {p_chave:chave, p_valor:valor});
+    if(error)          return {ok:false, msg:'Não consegui gravar: ' + error.message};
+    if(data && !data.ok) return {ok:false, msg: data.mensagem || ('Não gravado: ' + data.erro)};
+    return {ok:true, msg:'Salvo no servidor. Vale para todos os usuários.'};
+  }
+  Guarda.gravar('ros_bi_config', JSON.stringify(CFG_PAINEL));
+  return {ok:true, msg:'Salvo apenas nesta máquina (sem nuvem configurada).'};
+}
+
+/* Aviso curto no topo do módulo, some sozinho. */
+function recado(texto, tipo){
+  let el = document.getElementById('recado');
+  if(!el){
+    el = document.createElement('div'); el.id = 'recado';
+    el.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:90;'
+      + 'padding:11px 20px;border-radius:4px;font-weight:600;font-size:14.5px;box-shadow:var(--shadow-alta);'
+      + 'animation:entra .2s both';
+    document.body.appendChild(el);
+  }
+  el.style.background = tipo==='erro' ? 'var(--crit-soft)' : 'var(--ok-soft)';
+  el.style.color      = tipo==='erro' ? 'var(--crit)'      : 'var(--ok)';
+  el.style.border     = '1px solid ' + (tipo==='erro' ? 'var(--crit)' : 'var(--ok)');
+  el.textContent = texto;
+  el.classList.remove('hide');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.add('hide'), 4000);
+}
+
+/* ---------- 2. ESTADO ----------------------------------------------------- */
+let DADOS = {meta:{cliente:'—', erp:'—', atualizado_em:'—', unidades:[]}};
+let usuario = null;
+let moduloAtivo = 'visao';
+let unidadeAtiva = 'TODAS';
+let periodo = 'mes';
+
+const CHAVE_USERS = 'ros_bi_usuarios';
+const CHAVE_SESSAO = 'ros_bi_sessao';
+const CHAVE_TEMA = 'ros_bi_tema';
+
+/* ---------- 3. UTILITÁRIOS DE FORMATO ------------------------------------ */
+const nf0 = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+const nf2 = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const R  = v => (v===null||v===undefined||isNaN(v)) ? '—' : 'R$ ' + nf2.format(v);
+const R0 = v => (v===null||v===undefined||isNaN(v)) ? '—' : 'R$ ' + nf0.format(v);
+const P  = v => (v===null||v===undefined||isNaN(v)) ? '—' : nf2.format(v).replace(/,00$/,'') + '%';
+const N  = v => (v===null||v===undefined||isNaN(v)) ? '—' : nf0.format(v);
+const esc = s => String(s===null||s===undefined?'':s).replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dataBR = s => { if(!s) return '—'; const p = String(s).slice(0,10).split('-');
+  return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : s; };
+
+function tabela(cols, linhas, opc){
+  opc = opc || {};
+  const th = cols.map(c => `<th class="${c.r?'r':''}">${esc(c.t)}</th>`).join('');
+  const tb = linhas.map(l => {
+    const attrs = l._attrs || '';
+    const cls = [l._cls||'', l._clicavel?'clicavel':''].join(' ').trim();
+    const td = cols.map(c => {
+      const v = l[c.k];
+      return `<td class="${c.r?'r':''} ${c.forte?'forte':''} ${c.num!==false&&c.r?'num':''}">${v===undefined?'':v}</td>`;
+    }).join('');
+    return `<tr class="${cls}" ${attrs}>${td}</tr>`;
+  }).join('');
+  if(!linhas.length) return `<div class="vazio"><b>Sem dados</b>${esc(opc.vazio||'Nada a exibir para o filtro atual.')}</div>`;
+  return `<div class="rolagem"><table><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+}
+function bloco(titulo, corpo, obs){
+  return `<div class="bloco"><h3>${esc(titulo)}${obs?`<span class="obs">${esc(obs)}</span>`:''}</h3>${corpo}</div>`;
+}
+function kpi(rot, val, pe, tom){
+  return `<div class="kpi ${tom||''}"><span class="rot">${esc(rot)}</span>
+    <div class="val">${val}</div>${pe?`<div class="pe">${pe}</div>`:''}</div>`;
+}
+function aguardando(nome, motivo){
+  return `<div class="bloco"><div class="vazio"><b>${esc(nome)} — aguardando conector</b>
+    ${esc(motivo)}</div></div>`;
+}
+/* Dois filtros de unidade. Nenhum dos dois agrega — os dois apenas ESCOLHEM
+   linhas que o coletor já entregou prontas.
+   daUnidade  → listas que SÃO uma quebra por unidade (por_unidade, vendedores,
+                títulos). Em "TODAS" mostra todas as linhas.
+   noEscopo   → listas em que o coletor emitiu uma linha consolidada com
+                unidade="TODAS" ao lado das linhas de cada unidade. Sempre
+                casamento exato, senão a categoria apareceria repetida. */
+const daUnidade = arr => !arr ? [] :
+  (unidadeAtiva==='TODAS' ? arr : arr.filter(r => r.unidade === unidadeAtiva));
+const noEscopo = arr => !arr ? [] :
+  arr.filter(r => (r.unidade || 'TODAS') === unidadeAtiva);
+
+/* noPeriodo: escolhe as linhas do periodo selecionado. O coletor ja emitiu
+   uma linha por (periodo x unidade); aqui so se escolhe qual mostrar.
+   Bloco antigo, sem o campo periodo, passa direto — assim uma coleta velha
+   nao derruba a tela. */
+const noPeriodo = arr => !arr ? [] :
+  arr.filter(r => r.periodo === undefined || r.periodo === periodo);
+/* o recorte completo: periodo E unidade */
+const recorte = arr => noEscopo(noPeriodo(arr));
+
+/* ---------- 4. USUÁRIOS (camada estrutural) ------------------------------ */
+/* ATENÇÃO: autenticação no navegador NÃO é segurança — é a estrutura correta.
+   A checagem real passa para o servidor quando o Portal entrar (Fase 2). */
+
+/* Guarda-chuva do localStorage: aberto por duplo clique (file://) alguns
+   navegadores negam o armazenamento. Sem isto o painel quebraria justamente
+   no modo offline, que é como ele roda na máquina do cliente. */
+const Guarda = (function(){
+  const memoria = {};
+  let ok = true;
+  try { const t='__ros'; localStorage.setItem(t,'1'); localStorage.removeItem(t); }
+  catch(e){ ok = false; }
+  return {
+    disponivel: ok,
+    ler: k => { try { return ok ? localStorage.getItem(k) : (memoria[k] ?? null); }
+                catch(e){ return memoria[k] ?? null; } },
+    gravar: (k,v) => { memoria[k] = v; try { if(ok) localStorage.setItem(k,v); } catch(e){} },
+    apagar: k => { delete memoria[k]; try { if(ok) localStorage.removeItem(k); } catch(e){} }
+  };
+})();
+
+function hash(s){ let h = 5381; for(let i=0;i<s.length;i++) h = ((h<<5)+h) ^ s.charCodeAt(i); return (h>>>0).toString(36); }
+function lerUsuarios(){
+  try{ const j = JSON.parse(Guarda.ler(CHAVE_USERS)); if(Array.isArray(j) && j.length) return j; }catch(e){}
+  /* Usuários iniciais. Todos entram com a senha provisória `ros2026` e o painel
+     obriga a trocar no primeiro acesso — senha compartilhada não identifica
+     ninguém, e sem identificação a permissão por perfil não vale nada. */
+  const p = hash('ros2026');
+  const semente = [
+    {nome:'Diego Rosales',  email:'diego@rosestrategia.com.br', senha:p, perfil:'admin_ros',    unidade:'TODAS',               status:'ativo', trocar:false},
+    {nome:'Itaner Tondin',  email:'itaner@tondin.com.br',       senha:p, perfil:'proprietario', unidade:'TODAS',               status:'ativo', trocar:true},
+    {nome:'Claudio Tondin', email:'claudio@tondin.com.br',      senha:p, perfil:'proprietario', unidade:'TODAS',               status:'ativo', trocar:true},
+    {nome:'Fernanda Wagner',email:'fernanda@tondin.com.br',     senha:p, perfil:'financeiro',   unidade:'TODAS',               status:'ativo', trocar:true},
+    {nome:'Gerente Helenita',   email:'helenita@tondin.com.br',  senha:p, perfil:'gerente',    unidade:'Helenita',            status:'ativo', trocar:true},
+    {nome:'Gerente CL Tondin',  email:'cltondin@tondin.com.br',  senha:p, perfil:'gerente',    unidade:'CL Tondin',           status:'ativo', trocar:true},
+    {nome:'Gerente Ita',        email:'ita@tondin.com.br',       senha:p, perfil:'gerente',    unidade:'Ita Farmaceutica',    status:'ativo', trocar:true},
+    {nome:'Gerente Tondin Farm.',email:'tondinfarm@tondin.com.br',senha:p,perfil:'gerente',    unidade:'Tondin Farmaceutica', status:'ativo', trocar:true},
+    {nome:'Gerente Sapiranga',  email:'sapiranga@tondin.com.br', senha:p, perfil:'gerente',    unidade:'Sapiranga',           status:'ativo', trocar:true},
+    {nome:'Compras',            email:'compras@tondin.com.br',   senha:p, perfil:'compras',    unidade:'TODAS',               status:'ativo', trocar:true}
+  ];
+  Guarda.gravar(CHAVE_USERS, JSON.stringify(semente));
+  return semente;
+}
+function trocarSenha(email, nova){
+  const us = lerUsuarios();
+  const u = us.find(x => x.email.toLowerCase() === String(email).toLowerCase());
+  if(!u) return false;
+  u.senha = hash(nova); u.trocar = false;
+  gravarUsuarios(us);
+  return true;
+}
+function gravarUsuarios(us){ Guarda.gravar(CHAVE_USERS, JSON.stringify(us)); }
+
+/* ---------- 5. MÓDULOS ---------------------------------------------------- */
+const RENDER = {};
+
+RENDER.visao = () => {
+  const vd = DADOS.vendas || {};
+  /* o card e UMA linha: o periodo escolhido, no escopo escolhido */
+  const v = (noEscopo(noPeriodo(vd.por_periodo))[0]) || {};
+  /* o consolidado lista as unidades daquele periodo (sem a linha TODAS) */
+  const un = noPeriodo(vd.por_periodo).filter(r => r.unidade !== 'TODAS')
+             .filter(r => unidadeAtiva === 'TODAS' || r.unidade === unidadeAtiva)
+             .sort((a,b) => b.venda - a.venda);
+  const cx = daUnidade(DADOS.moeda && DADOS.moeda.por_unidade);
+  const cpHoje = (DADOS.contas_pagar && DADOS.contas_pagar.resumo_hoje) || {};
+  const caixa = cx.reduce((a,r)=>a+(r.caixa_imediato||0),0);
+  const rup = (DADOS.estoque && DADOS.estoque.ruptura_total) || {};
+  return `
+  ${filtroPeriodo()}
+  <div class="cards">
+    ${kpi('Venda '+rotuloPeriodo(), R0(v.venda), (v.cupons?N(v.cupons)+' cupons':''))}
+    ${kpi('Margem bruta', P(v.margem_pct), v.cmv?('CMV '+R0(v.cmv)):'', v.margem_pct>=30?'bom':(v.margem_pct<25?'ruim':'alerta'))}
+    ${kpi('Ticket médio', R(v.ticket))}
+    ${kpi('Caixa imediato 30d', R0(caixa), 'dinheiro + Pix + débito + crédito antecipado')}
+    ${kpi('A pagar hoje', R0(cpHoje.valor), cpHoje.titulos?N(cpHoje.titulos)+' títulos':'', cpHoje.valor>caixa/20?'alerta':'')}
+    ${kpi('Ruptura 30d (venda)', R0(rup.venda), rup.itens?N(rup.itens)+' itens':'', rup.venda>0?'ruim':'')}
+  </div>
+  ${bloco('Consolidado por unidade — '+rotuloPeriodo(), tabela([
+      {t:'Unidade',k:'u',forte:true},{t:'Venda',k:'v',r:true},{t:'Part.',k:'p',r:true},
+      {t:'Margem',k:'m',r:true},{t:'Ticket',k:'t',r:true},{t:'Cupons',k:'c',r:true}
+    ], (()=>{ const tot = un.reduce((a,r)=>a+(r.venda||0),0);
+      return un.map(r=>({u:esc(r.unidade), v:R0(r.venda), p:P(tot?r.venda/tot*100:0),
+        m:P(r.margem_pct), t:R(r.ticket), c:N(r.cupons)}));
+    })()))}`;
+};
+
+RENDER.vendas = () => {
+  const cat = recorte(DADOS.vendas && DADOS.vendas.por_categoria);
+  const totCat = cat.reduce((a,r)=>a+(r.venda||0),0);
+  const serie = noEscopo(DADOS.vendas && DADOS.vendas.serie_diaria);
+  return `
+  ${filtroPeriodo()}
+  ${bloco('Venda por categoria — '+rotuloPeriodo(),
+    tabela([{t:'Categoria',k:'c',forte:true},{t:'Venda',k:'v',r:true},{t:'Part.',k:'p',r:true},
+            {t:'',k:'b',r:false},{t:'Margem',k:'m',r:true},{t:'CMV',k:'x',r:true}],
+      cat.map(r=>({c:esc(r.categoria), v:R0(r.venda), p:P(totCat?r.venda/totCat*100:0),
+        b:`<div class="barra-mini"><i style="width:${totCat?Math.round(r.venda/totCat*100):0}%"></i></div>`,
+        m:P(r.margem_pct), x:R0(r.cmv)})) ),
+    'clique numa linha do ranking para abrir a curva ABC')}
+  ${bloco('Série diária — ' + (unidadeAtiva==='TODAS'?'rede':unidadeAtiva),
+      tabela([{t:'Data',k:'d',forte:true},{t:'Venda',k:'v',r:true},{t:'CMV',k:'c',r:true},
+              {t:'Margem',k:'m',r:true},{t:'Cupons',k:'cp',r:true},{t:'Ticket',k:'tk',r:true}],
+      serie.slice(-30).reverse().map(r=>({d:dataBR(r.data), v:R0(r.venda), c:R0(r.cmv),
+        m:P(r.margem_pct), cp:N(r.cupons), tk:R(r.ticket)}))),
+      'últimos 30 dias com movimento')}`;
+};
+
+RENDER.meta = () => {
+  const m = daUnidade(DADOS.meta_semana && DADOS.meta_semana.por_unidade);
+  return `
+  <div class="cards">
+    ${kpi('Compromissos da semana', R0(m.reduce((a,r)=>a+(r.compromissos||0),0)))}
+    ${kpi('Meta de venda', R0(m.reduce((a,r)=>a+(r.meta_venda||0),0)), 'para cobrir os compromissos')}
+    ${kpi('Já realizado', R0(m.reduce((a,r)=>a+(r.realizado||0),0)))}
+  </div>
+  ${bloco('Meta da semana por unidade', tabela([
+    {t:'Unidade',k:'u',forte:true},{t:'A pagar',k:'a',r:true},{t:'Taxa de caixa',k:'x',r:true},
+    {t:'Margem',k:'m',r:true},{t:'Meta de venda',k:'v',r:true},{t:'Realizado',k:'r',r:true},
+    {t:'Falta',k:'f',r:true},{t:'Situação',k:'s'}],
+    m.map(r=>{const falta = (r.meta_venda||0)-(r.realizado||0);
+      return {u:esc(r.unidade), a:R0(r.compromissos), x:P(r.taxa_conversao_caixa*100),
+        m:P(r.margem_pct), v:R0(r.meta_venda), r:R0(r.realizado),
+        f:falta>0?R0(falta):'—',
+        s:falta<=0?'<span class="pill p-ok">batida</span>'
+          :(r.realizado/(r.meta_venda||1)>=.7?'<span class="pill p-warn">no caminho</span>'
+          :'<span class="pill p-crit">atenção</span>')};})),
+    'quanto precisa vender para pagar os compromissos da semana')}`;
+};
+
+/* Montagem separada de proposito: template dentro de template dentro de
+   template fica ilegivel e e onde o parentese se perde. */
+function blocoConfigRanking(todos, fora, chave){
+  const linhas = todos.slice().sort((a,b)=>b.venda-a.venda).map(v => ({
+    c: '<input type="checkbox" data-exc="' + esc(chave(v)) + '"'
+       + (fora.has(chave(v)) ? '' : ' checked')
+       + (cfgSomenteLeitura ? ' disabled' : '') + '>',
+    n: esc(v.vendedor), u: esc(v.unidade), cd: esc(v.cod || '—'), v: R0(v.venda)
+  }));
+  const cabecalho =
+    '<div class="form-linha">'
+    + '<span class="selo" style="align-self:center">Desmarque quem não deve ser classificado — sócios, gerentes, caixa</span>'
+    + '<button class="btn sm primario" id="rk-salvar" style="width:auto"'
+    + (cfgSomenteLeitura ? ' disabled' : '') + '>Salvar</button></div>';
+  const cols = [{t:'No ranking',k:'c'},{t:'Vendedor',k:'n',forte:true},
+                {t:'Unidade',k:'u'},{t:'Código',k:'cd'},{t:'Venda',k:'v',r:true}];
+  return bloco('Quem entra no ranking', cabecalho + tabela(cols, linhas),
+    'a exclusão vale para o ranking, o prêmio e o Excel — e fica salva para todos');
+}
+
+RENDER.vendedores = () => {
+  const todos = daUnidade(DADOS.vendedores);
+  /* Quem esta fora do ranking. Guardado por CODIGO quando existe, nunca so
+     pelo nome: colaborador homonimo entrando depois seria excluido junto sem
+     ninguem entender por que. */
+  const fora = new Set(Object.keys(CFG_PAINEL.exclusoes || {}).filter(k => CFG_PAINEL.exclusoes[k]));
+  const chave = v => String(v.cod || v.vendedor);
+  const dentro = todos.filter(v => !fora.has(chave(v)));
+  const excluidos = todos.filter(v =>  fora.has(chave(v)));
+
+  /* A classificacao e recalculada sobre quem ficou: tirar alguem do meio faz
+     todo mundo abaixo subir uma posicao. */
+  const ranq = [...dentro].sort((a,b) => b.venda - a.venda);
+  const totalDentro = ranq.reduce((a,v)=>a+(v.venda||0),0);
+  const premiados = ranq.slice(0,3).map(v => chave(v));
+
+  const editando = !!DADOS._editandoRanking;
+
+  return `
+  <div class="filtros">
+    <button class="btn sm" id="rk-config">${editando ? '✕ Fechar configuração' : '⚙ Configurar quem entra'}</button>
+    <button class="btn sm" id="rk-xls">⭳ Baixar Excel</button>
+    ${excluidos.length ? `<span class="pill p-neutro">${excluidos.length} fora do ranking</span>` : ''}
+    ${cfgSomenteLeitura ? '<span class="pill p-warn">seu perfil só visualiza</span>' : ''}
+  </div>
+
+  ${editando ? blocoConfigRanking(todos, fora, chave) : ''}
+
+  <div class="cards">
+    ${kpi('Classificados', N(ranq.length), excluidos.length?N(excluidos.length)+' fora':'')}
+    ${kpi('Venda dos classificados', R0(totalDentro))}
+    ${kpi('Ticket médio do grupo', R(ranq.length?ranq.reduce((a,v)=>a+(v.ticket_medio||0),0)/ranq.length:0))}
+  </div>
+
+  ${bloco('Ranking de vendedores', tabela([
+    {t:'#',k:'i',forte:true},{t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},
+    {t:'Venda',k:'v',r:true},{t:'Part.',k:'p',r:true},{t:'Margem',k:'m',r:true},
+    {t:'Ticket médio',k:'t',r:true},{t:'Itens/cupom',k:'ic',r:true},{t:'Atend.',k:'a',r:true},
+    {t:'Cresc.',k:'cr',r:true},{t:'Prêmio',k:'pr',r:true}],
+    ranq.map((r,i)=>({
+      i: i<3 ? `<span class="pill p-ok">${i+1}º</span>` : String(i+1),
+      n:esc(r.vendedor), u:esc(r.unidade), v:R0(r.venda),
+      p:P(totalDentro?r.venda/totalDentro*100:0), m:P(r.margem_pct), t:R(r.ticket_medio),
+      ic:r.itens_por_cupom?nf2.format(r.itens_por_cupom):'—', a:N(r.atendimentos),
+      cr:r.crescimento_pct?P(r.crescimento_pct):'—',
+      pr:premiados.includes(chave(r))?'<span class="pill p-ok">sim</span>':'—',
+      _clicavel:true, _attrs:`data-drill="${esc(r.vendedor)}"`})),
+    ), 'classificação recalculada sobre quem está no ranking — clique no vendedor para abrir por categoria')}
+
+  ${excluidos.length ? bloco('Fora do ranking', tabela([
+    {t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},{t:'Venda',k:'v',r:true}],
+    excluidos.sort((a,b)=>b.venda-a.venda).map(v=>({n:esc(v.vendedor),u:esc(v.unidade),v:R0(v.venda)}))),
+    'a venda destes continua contando no faturamento — só não disputa a classificação') : ''}
+  <div id="drill-vendedor"></div>`;
+};
+
+RENDER.rankings = () => {
+  const rk = DADOS.rankings || {dimensoes:[], dados:{}};
+  const dim = rk._sel || (rk.dimensoes[0] || null);
+  if(!dim) return aguardando('Rankings','Nenhuma dimensão declarada pelo conector deste cliente.');
+  const linhas = noEscopo(rk.dados[dim] || []);
+  const tot = linhas.reduce((a,r)=>a+(r.venda||0),0);
+  let acum = 0;
+  return `
+  <div class="filtros">
+    <span class="selo">Ranquear por</span>
+    <div class="seg" id="seg-dim">${rk.dimensoes.map(d=>
+      `<button data-dim="${esc(d)}" class="${d===dim?'on':''}">${esc(rotuloDim(d))}</button>`).join('')}</div>
+  </div>
+  ${bloco('Ranking por '+rotuloDim(dim), tabela([
+    {t:'#',k:'i',forte:true},{t:rotuloDim(dim),k:'n',forte:true},{t:'Venda',k:'v',r:true},
+    {t:'Part.',k:'p',r:true},{t:'Acum.',k:'ac',r:true},{t:'Curva',k:'cv'},{t:'Margem',k:'m',r:true}],
+    linhas.map((r,i)=>{ const part = tot?r.venda/tot*100:0; acum += part;
+      const cv = acum<=80?'A':(acum<=95?'B':'C');
+      return {i:String(i+1), n:esc(r.nome), v:R0(r.venda), p:P(part), ac:P(acum),
+        cv:`<span class="pill ${cv==='A'?'p-ok':(cv==='B'?'p-warn':'p-neutro')}">${cv}</span>`,
+        m:P(r.margem_pct),
+        _clicavel: dim!=='produto',
+        _attrs: dim!=='produto' ? `data-abre="${esc(dim)}" data-valor="${esc(r.nome)}"` : ''};})),
+    dim==='produto' ? 'curva ABC sobre a dimensão escolhida'
+      : 'curva ABC sobre a dimensão escolhida — clique na linha para abrir os produtos')}`;
+};
+const rotuloDim = d => ({categoria:'Categoria', produto:'Produto', fornecedor:'Fornecedor',
+  laboratorio:'Laboratório', grupo:'Grupo', principio:'Princípio ativo', cliente:'Cliente'}[d] || d);
+
+RENDER.fluxo = () => {
+  const f = (DADOS.fluxo && DADOS.fluxo.dias) || [];
+  const g = (DADOS.fluxo && DADOS.fluxo._gran) || 'diario';
+  const mostrarReal = !!(DADOS.fluxo && DADOS.fluxo._real);
+  const menor = f.reduce((a,r)=>Math.min(a, r.saldo_projetado), Infinity);
+  return `
+  <div class="filtros">
+    <div class="seg" id="seg-gran">
+      ${[['diario','Diário'],['semanal','Semanal'],['mensal','Mensal']].map(([k,t])=>
+        `<button data-gran="${k}" class="${g===k?'on':''}">${t}</button>`).join('')}
+    </div>
+    <div class="seg" id="seg-real">
+      <button data-real="0" class="${!mostrarReal?'on':''}">Projetado</button>
+      <button data-real="1" class="${mostrarReal?'on':''}">Realizado</button>
+    </div>
+  </div>
+  <div class="cards">
+    ${kpi('Saldo inicial', R0(f.length?f[0].saldo_inicial:null))}
+    ${kpi('Saldo final projetado', R0(f.length?f[f.length-1].saldo_projetado:null),'',
+        (f.length&&f[f.length-1].saldo_projetado<0)?'ruim':'bom')}
+    ${kpi('Menor saldo do período', R0(isFinite(menor)?menor:null),
+        isFinite(menor)&&menor<0?'entra em caixa negativo':'', menor<0?'ruim':'bom')}
+  </div>
+  ${bloco('Fluxo de caixa — '+({diario:'diário',semanal:'semanal',mensal:'mensal'}[g]),
+    tabela([{t:'Data',k:'d',forte:true},{t:'Saldo Inicial',k:'si',r:true},{t:'A Receber',k:'ar',r:true},
+      {t:mostrarReal?'A Pagar Realizado':'A Pagar Projetado',k:'ap',r:true},
+      {t:mostrarReal?'Saldo Realizado':'Saldo Projetado',k:'sp',r:true},{t:'',k:'s'}],
+      f.map(r=>{const sp = mostrarReal ? r.saldo_realizado : r.saldo_projetado;
+        return {d:dataBR(r.data), si:R0(r.saldo_inicial), ar:R0(r.a_receber),
+          ap:R0(mostrarReal ? r.a_pagar_realizado : r.a_pagar_projetado), sp:R0(sp),
+          s: sp<0 ? '<span class="pill p-crit">negativo</span>' : '',
+          _cls: sp<0 ? '' : ''};})))}`;
+};
+
+RENDER.cp = () => {
+  const t = (DADOS.contas_pagar && DADOS.contas_pagar.titulos) || [];
+  const filtro = (DADOS.contas_pagar && DADOS.contas_pagar._dia) || '';
+  const lista = daUnidade(t).filter(r => !filtro || String(r.data).slice(0,10) === filtro);
+  const total = lista.reduce((a,r)=>a+(r.valor||0),0);
+  const pago = lista.reduce((a,r)=>a+(r.pago||0),0);
+  return `
+  <div class="filtros">
+    <label class="campo" style="margin:0"><span>Filtrar por dia</span>
+      <input type="date" id="cp-dia" value="${esc(filtro)}"></label>
+    <button class="btn sm" id="cp-limpar" style="margin-top:18px">Limpar</button>
+  </div>
+  <div class="cards">
+    ${kpi('Total no filtro', R0(total), N(lista.length)+' títulos')}
+    ${kpi('Já pago', R0(pago))}
+    ${kpi('Em aberto', R0(total-pago), '', (total-pago)>0?'alerta':'bom')}
+  </div>
+  ${bloco('Títulos', tabela([{t:'Vencimento',k:'d',forte:true},{t:'Unidade',k:'u'},
+    {t:'Fornecedor',k:'f'},{t:'Plano de contas',k:'p'},{t:'Valor',k:'v',r:true},{t:'Situação',k:'s'}],
+    lista.slice(0,200).map(r=>({d:dataBR(r.data), u:esc(r.unidade), f:esc(r.fornecedor),
+      p:esc(r.plano), v:R0(r.valor),
+      s:(r.pago>=r.valor)?'<span class="pill p-ok">pago</span>':'<span class="pill p-warn">aberto</span>'}))),
+    lista.length>200 ? 'mostrando os 200 primeiros — refine o filtro' : '')}`;
+};
+
+RENDER.moeda = () => {
+  const m = daUnidade(DADOS.moeda && DADOS.moeda.por_unidade);
+  const cfg = (DADOS.moeda && DADOS.moeda.parametros) || {};
+  const somar = k => m.reduce((a,r)=>a+(r[k]||0),0);
+  const credito = somar('cartao_credito');
+  const pctAntec = cfg.pct_antecipado!==undefined ? cfg.pct_antecipado : 0.70;
+  const taxaAntec = cfg.taxa_antecipacao!==undefined ? cfg.taxa_antecipacao : 0.0199;
+  const valorAntecipado = credito * pctAntec;
+  const custo = valorAntecipado * taxaAntec;
+  const formas = [['dinheiro','Dinheiro','D+0'],['pix','Pix','D+0'],['cartao_debito','Cartão débito','D+1'],
+    ['cartao_credito','Cartão crédito','D+30'],['private_label','Private label','D+30'],
+    ['convenio','Convênio','fechamento'],['crediario','Crediário','a prazo'],['outros','Outros','—']];
+  const total = somar('total_30d');
+  return `
+  <div class="cards">
+    ${kpi('Venda 30 dias', R0(total))}
+    ${kpi('Caixa imediato', R0(somar('caixa_imediato')), 'entra na própria semana')}
+    ${kpi('A receber a prazo', R0(somar('a_receber_prazo')))}
+    ${kpi('Custo da antecipação', R0(custo), P(taxaAntec*100)+' sobre '+R0(valorAntecipado), custo>0?'alerta':'')}
+  </div>
+  ${bloco('Abertura por forma de pagamento — 30 dias',
+    tabela([{t:'Forma',k:'f',forte:true},{t:'Prazo',k:'p'},{t:'Valor',k:'v',r:true},{t:'Part.',k:'x',r:true},{t:'',k:'b'}],
+      formas.map(([k,nome,prazo])=>({f:nome, p:`<span class="pill p-neutro">${prazo}</span>`,
+        v:R0(somar(k)), x:P(total?somar(k)/total*100:0),
+        b:`<div class="barra-mini"><i style="width:${total?Math.round(somar(k)/total*100):0}%"></i></div>`}))))}
+  ${bloco('Simulador de antecipação', `
+    <div class="form-linha">
+      <label class="campo"><span>% do crédito antecipado</span>
+        <input type="number" id="ant-pct" min="0" max="100" step="1" value="${Math.round(pctAntec*100)}"></label>
+      <label class="campo"><span>Taxa de antecipação (% a.m.)</span>
+        <input type="number" id="ant-taxa" min="0" max="20" step="0.01" value="${(taxaAntec*100).toFixed(2)}"></label>
+      <button class="btn sm" id="ant-calc">Recalcular</button>
+    </div>
+    ${tabela([{t:'Cenário',k:'c',forte:true},{t:'Entra agora',k:'a',r:true},{t:'Entra em D+30',k:'d',r:true},
+      {t:'Custo',k:'x',r:true},{t:'Líquido total',k:'l',r:true}],[
+      {c:'Sem antecipar', a:R0(somar('dinheiro')+somar('pix')+somar('cartao_debito')),
+       d:R0(credito), x:R0(0), l:R0(somar('dinheiro')+somar('pix')+somar('cartao_debito')+credito)},
+      {c:`Antecipando ${Math.round(pctAntec*100)}%`,
+       a:R0(somar('dinheiro')+somar('pix')+somar('cartao_debito')+valorAntecipado-custo),
+       d:R0(credito-valorAntecipado), x:R0(custo),
+       l:R0(somar('dinheiro')+somar('pix')+somar('cartao_debito')+credito-custo), _cls:'total'}
+    ])}`, 'o custo é o preço de ter o dinheiro hoje — compare com a necessidade de caixa do Fluxo')}
+  ${bloco('Conversão em caixa por unidade', tabela([{t:'Unidade',k:'u',forte:true},
+    {t:'Venda 30d',k:'v',r:true},{t:'Caixa imediato',k:'c',r:true},{t:'Taxa de conversão',k:'t',r:true},
+    {t:'A receber',k:'a',r:true}],
+    m.map(r=>({u:esc(r.unidade), v:R0(r.total_30d), c:R0(r.caixa_imediato),
+      t:P((r.taxa_conversao_caixa||0)*100), a:R0(r.a_receber_prazo)}))),
+    'quanto de cada R$ 1,00 vendido vira caixa na própria semana')}`;
+};
+
+RENDER.dre = () => {
+  const d = DADOS.dre || {};
+  if(!d.linhas) return aguardando('DRE','O coletor ainda não gerou o bloco de DRE.');
+  const meses = d.meses || [];
+  return `
+  ${bloco('DRE gerencial — realizado × projetado',
+    `<div class="rolagem"><table><thead><tr>
+      <th>Conta</th>${meses.map(m=>`<th class="r">${esc(m)}</th>`).join('')}
+      <th class="r">Projetado do mês</th></tr></thead><tbody>
+      ${d.linhas.map(l=>`<tr class="${l.total?'total':''}">
+        <td class="forte">${esc(l.conta)}</td>
+        ${meses.map((m,i)=>`<td class="r num">${l.pct?P(l.valores[i]):R0(l.valores[i])}</td>`).join('')}
+        <td class="r num">${l.pct?P(l.projetado):R0(l.projetado)}</td></tr>`).join('')}
+    </tbody></table></div>`,
+    'projeção pela média por dia da semana dos últimos 56 dias')}`;
+};
+
+RENDER.estoque = () => {
+  const e = DADOS.estoque || {};
+  const cat = noEscopo(e.por_categoria);
+  const rup = noEscopo(e.ruptura);
+  const oc = e.orcamento || {};
+  const somar = (arr,k) => arr.reduce((a,r)=>a+(r[k]||0),0);
+  return `
+  <div class="cards">
+    ${kpi('Estoque a custo', R0(somar(cat,'estoque_valor')))}
+    ${kpi('CMV 30 dias', R0(somar(cat,'cmv_30d')))}
+    ${kpi('Compra do mês', R0(somar(cat,'compra_mes')))}
+    ${kpi('Pode entrar de boleto', R0(oc.espaco_boleto), 'CMV 30d − compra do mês',
+        oc.espaco_boleto<0?'ruim':'bom')}
+    ${kpi('Ruptura (venda perdida)', R0(somar(rup,'venda')), N(somar(rup,'itens'))+' itens', 'ruim')}
+  </div>
+  ${bloco('Orçamento de compra do mês', `
+    <div class="form-linha">
+      <label class="campo"><span>Meta de amortização</span>
+        <input type="number" id="oc-amort" step="1000" value="${oc.meta_amortizacao||0}"></label>
+      <label class="campo"><span>Reserva de emergência (%)</span>
+        <input type="number" id="oc-reserva" step="0.5" value="${((oc.pct_reserva||0.05)*100).toFixed(1)}"></label>
+      <button class="btn sm" id="oc-calc">Recalcular</button>
+    </div>
+    ${tabela([{t:'Componente',k:'c',forte:true},{t:'Valor',k:'v',r:true}],[
+      {c:'CMV dos últimos 30 dias', v:R0(oc.cmv_30d)},
+      {c:'(−) Reserva de emergência', v:R0(-(oc.reserva||0))},
+      {c:'(−) Meta de amortização', v:R0(-(oc.meta_amortizacao||0))},
+      {c:'CMV projetado do mês', v:R0(oc.cmv_projetado)},
+      {c:'= Teto de compra do mês (o menor dos dois)', v:R0(oc.teto), _cls:'total'}
+    ])}`, 'teto = MIN( CMV 30d − reserva − amortização ; CMV projetado )')}
+  ${bloco('Categoria × curva ABC', tabela([
+    {t:'Categoria',k:'c',forte:true},{t:'Venda mês',k:'v',r:true},{t:'Estoque',k:'e',r:true},
+    {t:'CMV 30d',k:'m',r:true},{t:'Dias A',k:'da',r:true},{t:'Dias B',k:'db',r:true},
+    {t:'Dias C',k:'dc',r:true},{t:'Dias D',k:'dd',r:true},{t:'Ruptura',k:'r',r:true}],
+    cat.map(r=>{const ru = rup.find(x=>x.categoria===r.categoria) || {};
+      return {c:esc(r.categoria)+' <span class="pill p-neutro">abrir</span>',
+        v:R0(r.venda_mes), e:R0(r.estoque_valor), m:R0(r.cmv_30d),
+        da:N(r.dias_a), db:N(r.dias_b), dc:N(r.dias_c), dd:N(r.dias_d), r:R0(ru.venda),
+        _clicavel:true, _attrs:`data-abre="categoria" data-valor="${esc(r.categoria)}"`};})),
+    'clique na categoria para abrir os produtos, com filtro por laboratório, princípio ativo e grupo')}
+  ${bloco('Baixo giro — candidatos a não recompra', tabela([
+    {t:'Produto',k:'p',forte:true},{t:'Categoria',k:'c'},{t:'Estoque',k:'e',r:true},
+    {t:'Cobertura',k:'d',r:true},{t:'Última venda',k:'u'}],
+    (e.baixo_giro||[]).slice(0,50).map(r=>({p:esc(r.produto), c:esc(r.categoria),
+      e:R0(r.estoque_valor), d:N(r.dias_cobertura)+' d', u:dataBR(r.ultima_venda)}))))}`;
+};
+
+RENDER.elast = () => {
+  const todos = DADOS.elasticidade || [];
+  if(!todos.length) return aguardando('Elasticidade de preço',
+    'O coletor precisa emitir a série de preço praticado por produto. Base: preço unitário no grão da linha.');
+  DADOS._fe = DADOS._fe || {};
+  const f = DADOS._fe;
+  const el = todos.filter(r =>
+    (!f.categoria   || r.categoria   === f.categoria) &&
+    (!f.laboratorio || r.laboratorio === f.laboratorio) &&
+    (!f.principio   || r.principio   === f.principio) &&
+    (!f.grupo       || r.grupo       === f.grupo));
+
+  const opc = (campo, rot) => {
+    const vals = [...new Set(todos.map(r=>r[campo]).filter(Boolean))].sort();
+    if(!vals.length) return '';
+    return `<label class="campo" style="margin:0"><span>${rot}</span>
+      <select data-fe="${campo}"><option value="">Todos</option>
+      ${vals.map(v=>`<option ${f[campo]===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select></label>`;
+  };
+  const compraVolume = el.filter(r=>r.elasticidade < -1);
+  const doaMargem    = el.filter(r=>r.elasticidade > -0.3);
+  const ganho = doaMargem.reduce((a,r)=>a+(r.margem_perdida||0),0);
+
+  return `
+  <div class="filtros">
+    ${opc('categoria','Categoria')}${opc('laboratorio','Laboratório')}
+    ${opc('principio','Princípio ativo')}${opc('grupo','Grupo')}
+    <button class="btn sm" id="fe-limpar" style="margin-top:18px">Limpar</button>
+    <button class="btn sm" id="fe-xls" style="margin-top:18px">⭳ Baixar Excel</button>
+  </div>
+  <div class="cards">
+    ${kpi('Produtos analisados', N(el.length))}
+    ${kpi('Desconto compra volume', N(compraVolume.length), 'elasticidade abaixo de −1', 'bom')}
+    ${kpi('Desconto só doa margem', N(doaMargem.length), 'elasticidade acima de −0,3', 'ruim')}
+    ${kpi('Margem doada no período', R0(ganho), 'o que voltaria reprecificando estes', ganho>0?'alerta':'')}
+  </div>
+  ${bloco('Produtos por sensibilidade a preço', tabela([
+    {t:'Produto',k:'p',forte:true},{t:'Categoria',k:'c'},{t:'Laboratório',k:'lb'},
+    {t:'Preço médio',k:'pm',r:true},{t:'Δ preço',k:'vp',r:true},{t:'Δ volume',k:'vv',r:true},
+    {t:'Elasticidade',k:'e',r:true},{t:'Leitura',k:'l'},{t:'Ação',k:'a'}],
+    el.map(r=>({p:esc(r.produto), c:esc(r.categoria), lb:esc(r.laboratorio||'—'),
+      pm:R(r.preco_medio), vp:P(r.var_preco_pct), vv:P(r.var_volume_pct),
+      e:nf2.format(r.elasticidade),
+      l: r.elasticidade < -1 ? '<span class="pill p-ok">desconto compra volume</span>'
+       : (r.elasticidade > -0.3 ? '<span class="pill p-crit">desconto só doa margem</span>'
+       : '<span class="pill p-warn">pouco sensível</span>'),
+      a: r.elasticidade > -0.3 ? 'subir preço' : (r.elasticidade < -1 ? 'manter/ampliar desconto' : 'observar')
+    }))),
+    'elasticidade = variação % do volume ÷ variação % do preço praticado')}`;
+};
+
+/* ---- CONVÊNIOS -----------------------------------------------------------
+   Regra do cliente: o convênio NÃO é taxa sobre a venda da semana — é caixa com
+   data fixa, vindo de venda passada. Vence dia 8 (30%) e dia 20 (70%). Se a
+   semana contém o dia 8 ou o 20, esse dinheiro entra e ABATE a necessidade de
+   venda da Meta da Semana. */
+RENDER.convenios = () => {
+  const cv = DADOS.convenios;
+  if(!cv || !cv.config || !cv.config.length)
+    return aguardando('Convênios','Falta o SQL de convênios do Trier. O módulo está pronto — assim que o coletor emitir o bloco, ele acende sozinho.');
+  const periodo = cv._periodo || (cv.periodos && cv.periodos[0]);
+  const cod = (cv._cod !== undefined) ? cv._cod : cv.config[0].cod;
+  const conf = cv.config.find(c => String(c.cod) === String(cod)) || cv.config[0];
+  const lista = (cv.lista||[]).filter(r => String(r.cod)===String(cod) && r.periodo===periodo);
+  const consumido = lista.reduce((a,r)=>a+(r.valor||0),0);
+  const venc = (cv.vencimentos||[]).filter(r => r.periodo===periodo && String(r.cod)===String(cod));
+  /* Novope sai em CSV, ZZSAP em planilha com matricula. O formato vem do
+     cadastro do convenio, nao de um "se" espalhado pelo codigo. */
+  const formato = conf.formato || (String(conf.cod) === '113' ? 'xlsx' : 'csv');
+  const base = CFG_PAINEL.matriculas || {};
+  const semMat = lista.filter(r => {
+    const c = String(r.cpf||'').replace(/\D/g,'');
+    return !((base.mapa && base.mapa[c]) || (r.matricula && String(r.matricula) !== '0'));
+  }).length;
+
+  return `
+  <div class="filtros">
+    <span class="selo">Convênio</span>
+    <div class="seg" id="seg-conv">${cv.config.map(c=>
+      `<button data-conv="${esc(c.cod)}" class="${String(c.cod)===String(cod)?'on':''}">${esc(c.nome)}</button>`).join('')}</div>
+    <span class="selo">Período</span>
+    <div class="seg" id="seg-convper">${(cv.periodos||[]).map(p=>
+      `<button data-convper="${esc(p)}" class="${p===periodo?'on':''}">${esc(p)}</button>`).join('')}</div>
+    <button class="btn sm" id="cv-baixar">⭳ Fechamento (${formato.toUpperCase()})</button>
+    <label class="btn sm" style="cursor:pointer">⭱ Importar base de matrículas
+      <input type="file" id="cv-import" accept=".xlsx,.xls,.csv,.txt" style="display:none" ${cfgSomenteLeitura?'disabled':''}>
+    </label>
+    ${base.total ? `<span class="pill p-ok">${N(base.total)} matrículas · ${esc(base.importado_em||'')}</span>` : ''}
+    ${semMat ? `<span class="pill p-crit">${N(semMat)} sem matrícula</span>` : ''}
+  </div>
+  <div class="cards">
+    ${kpi('Consumido no período', R0(consumido), N(lista.length)+' lançamentos')}
+    ${kpi('Teto mensal', R0(conf.teto_mensal))}
+    ${kpi('Uso do teto', P(conf.teto_mensal?consumido/conf.teto_mensal*100:0), '',
+        consumido>conf.teto_mensal?'ruim':(consumido>conf.teto_mensal*.85?'alerta':'bom'))}
+    ${kpi('Saldo do teto', R0((conf.teto_mensal||0)-consumido))}
+  </div>
+  ${bloco('Entrada em caixa — vencimentos do período', tabela([
+    {t:'Data',k:'d',forte:true},{t:'Parcela',k:'p'},{t:'Valor',k:'v',r:true},{t:'Situação',k:'s'}],
+    venc.map(r=>({d:dataBR(r.data), p:P(r.pct*100)+' do período', v:R0(r.valor),
+      s: r.pago ? '<span class="pill p-ok">recebido</span>' : '<span class="pill p-warn">a receber</span>'}))),
+    'dia 8 = 30% · dia 20 = 70% — é o que abate a Meta da Semana quando cai dentro dela')}
+  ${bloco('Lançamentos — '+esc(conf.nome)+' · '+esc(periodo), tabela([
+    {t:'Matrícula',k:'m',forte:true},{t:'Beneficiário',k:'b',forte:true},{t:'CPF',k:'c'},
+    {t:'Compras',k:'q',r:true},{t:'Primeira',k:'p1'},{t:'Última',k:'p2'},{t:'Valor',k:'v',r:true}],
+    convLinhas(cod, periodo).slice(0,300).map(r=>({
+      m: r.matricula
+         ? `${esc(r.matricula)} <span class="pill ${r.origem_matricula==='base'?'p-ok':'p-warn'}">${r.origem_matricula}</span>`
+         : '<span class="pill p-crit">não consta</span>',
+      b:esc(r.beneficiario), c:esc(r.cpf_formatado), q:N(r.qtd_compras),
+      p1:esc(r.primeira_compra), p2:esc(r.ultima_compra), v:R0(r.valor)}))),
+    'a matrícula sai da base da conveniada; quando falta, cai na do ERP')}`;
+};
+
+/* ---- COMISSÕES -----------------------------------------------------------
+   Regra da Fernanda Wagner (Financeiro Itaner), 09/07/2026:
+     A faixa é definida pelo MIX DA LOJA (Genérico+Similar ÷ venda da loja):
+       até 37,99% → 3% | 38,00 a 41,99% → 4% | 42% ou mais → 6% SE bater a meta
+     A comissão é aplicada sobre a VENDA INDIVIDUAL de cada colaborador:
+       Fitoterápicos, Oficinais e Ortopédicos → sempre 3%
+       Genérico e Similar → usa a faixa da loja
+     Prêmio de R$ 150 por vendedor quando a loja bate 100% da meta.
+   A meta da loja é MANUAL — não existe no ERP. Digitada aqui e guardada no
+   servidor (nunca no navegador: senão o fechamento dependeria de qual PC abriu). */
+function faixaComissao(mixPct, bateuMeta){
+  if(mixPct >= 42) return bateuMeta ? 6 : 4;   // ver ressalva abaixo
+  if(mixPct >= 38) return 4;
+  return 3;
+}
+RENDER.comissoes = () => {
+  const cm = DADOS.comissoes;
+  if(!cm || !cm.por_unidade || !cm.por_unidade.length)
+    return aguardando('Comissões','Falta o SQL de comissão do Trier. O módulo está pronto com a regra do cliente — assim que o coletor emitir venda por vendedor e por tipo de produto, ele acende.');
+  const mes = cm._mes || (cm.meses && cm.meses[0]);
+  const metas = (cm.metas && cm.metas[mes]) || {};
+  const unis = daUnidade(cm.por_unidade.filter(r => r.mes === mes));
+  const vends = daUnidade((cm.por_vendedor||[]).filter(r => r.mes === mes));
+
+  const porUni = {};
+  unis.forEach(u => {
+    const meta = +metas[u.unidade] || 0;
+    const bateu = meta > 0 && u.venda_total >= meta;
+    porUni[u.unidade] = {meta, bateu, mix:u.mix_gs_pct, faixa:faixaComissao(u.mix_gs_pct, bateu)};
+  });
+
+  let totCom = 0, totPre = 0;
+  const linhas = vends.map(v => {
+    const u = porUni[v.unidade] || {faixa:3, bateu:false};
+    const cGS = (v.venda_gs||0) * u.faixa/100;
+    const cFix = (v.venda_fixa3||0) * 0.03;
+    const premio = u.bateu ? 150 : 0;
+    totCom += cGS + cFix; totPre += premio;
+    return {v, u, cGS, cFix, premio, total:cGS+cFix+premio};
+  }).sort((a,b)=>b.total-a.total);
+
+  return `
+  <div class="filtros">
+    <span class="selo">Mês</span>
+    <div class="seg" id="seg-mes">${(cm.meses||[]).map(m=>
+      `<button data-mes="${esc(m)}" class="${m===mes?'on':''}">${esc(m)}</button>`).join('')}</div>
+    <button class="btn sm" id="cm-xls">⭳ Baixar apuração</button>
+  </div>
+  <div class="cards">
+    ${kpi('Comissão do mês', R0(totCom))}
+    ${kpi('Prêmios', R0(totPre), N(linhas.filter(l=>l.premio).length)+' vendedores')}
+    ${kpi('Custo total', R0(totCom+totPre))}
+    ${kpi('Lojas que bateram a meta', N(Object.values(porUni).filter(u=>u.bateu).length)+' de '+N(unis.length))}
+  </div>
+  ${bloco('Meta e faixa por loja', `
+    <div class="form-linha">
+      <span class="selo" style="align-self:center">Digite a meta de cada loja — ela não existe no ERP</span>
+      <button class="btn sm" id="cm-salvar">Salvar metas</button>
+    </div>
+    ${tabela([{t:'Unidade',k:'u',forte:true},{t:'Meta do mês',k:'me'},{t:'Venda',k:'v',r:true},
+      {t:'Atingimento',k:'a',r:true},{t:'Mix G+S',k:'m',r:true},{t:'Faixa',k:'f',r:true},{t:'Situação',k:'s'}],
+      unis.map(u=>{const p = porUni[u.unidade];
+        return {u:esc(u.unidade),
+          me:`<input type="number" step="1000" data-meta="${esc(u.unidade)}" value="${p.meta||''}" style="width:130px">`,
+          v:R0(u.venda_total), a:p.meta?P(u.venda_total/p.meta*100):'—',
+          m:P(u.mix_gs_pct), f:`<span class="pill ${p.faixa===6?'p-ok':(p.faixa===4?'p-warn':'p-neutro')}">${p.faixa}%</span>`,
+          s:p.bateu?'<span class="pill p-ok">bateu</span>':(p.meta?'<span class="pill p-crit">não bateu</span>':'<span class="pill p-neutro">sem meta</span>')};}))}`,
+    'a faixa vem do mix da loja; a meta só decide se os 42% valem 6% ou não')}
+  ${bloco('O que cada um já ganhou — e o que está em jogo', tabela([
+    {t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},{t:'Ganho hoje',k:'g',r:true},
+    {t:'Se a loja bater a meta',k:'s',r:true},{t:'Diferença',k:'d',r:true},
+    {t:'Falta a loja vender',k:'fv',r:true},{t:'Falta em G+S p/ subir de faixa',k:'fm',r:true}],
+    linhas.map(l=>{
+      const u = porUni[l.v.unidade];
+      const uni = unis.find(x=>x.unidade===l.v.unidade) || {venda_total:0, venda_gs:0};
+      /* Simulação "e se": cenário em que a loja bate a meta. A faixa sobe para o
+         que o mix atual permitir e entra o prêmio de R$ 150. */
+      const faixaSe = faixaComissao(u.mix, true);
+      const seBate = (l.v.venda_gs||0)*faixaSe/100 + (l.v.venda_fixa3||0)*0.03 + 150;
+      const faltaVenda = Math.max(0, (u.meta||0) - uni.venda_total);
+      /* Quanto de G+S ainda falta para o mix da loja cruzar a próxima faixa */
+      const alvoMix = u.mix < 38 ? 38 : (u.mix < 42 ? 42 : null);
+      const faltaGS = alvoMix ? Math.max(0, uni.venda_total*alvoMix/100 - uni.venda_gs) : null;
+      return {n:esc(l.v.vendedor), u:esc(l.v.unidade), g:R0(l.total),
+        s: u.bateu ? '<span class="pill p-ok">já bateu</span>' : R0(seBate),
+        d: u.bateu ? '—' : R0(seBate - l.total),
+        fv: faltaVenda ? R0(faltaVenda) : '<span class="pill p-ok">meta batida</span>',
+        fm: faltaGS === null ? '<span class="pill p-ok">na faixa máxima</span>'
+            : R0(faltaGS) + ` <span class="pill p-neutro">→ ${alvoMix}%</span>`};
+    })),
+    'a faixa é da loja, então o ganho de cada um depende do time — é isso que a tela mostra')}
+  ${bloco('Apuração por vendedor', tabela([
+    {t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},{t:'Venda',k:'v',r:true},
+    {t:'G+S',k:'g',r:true},{t:'Faixa',k:'f',r:true},{t:'Com. G+S',k:'cg',r:true},
+    {t:'Fito/Ofic/Orto',k:'x',r:true},{t:'Com. 3%',k:'cx',r:true},
+    {t:'Prêmio',k:'p',r:true},{t:'Total',k:'t',r:true}],
+    linhas.map(l=>({n:esc(l.v.vendedor), u:esc(l.v.unidade), v:R0(l.v.venda_total),
+      g:R0(l.v.venda_gs), f:l.u.faixa+'%', cg:R0(l.cGS), x:R0(l.v.venda_fixa3),
+      cx:R0(l.cFix), p:l.premio?R0(l.premio):'—', t:R0(l.total)}))))}
+  <div class="bloco"><h3>A regra aplicada</h3><div style="padding:14px 16px;color:var(--ink-2)">
+    <p style="margin:0 0 8px">Faixa pelo <b>mix da loja</b> (Genérico + Similar ÷ venda da loja):
+    até 37,99% → <b>3%</b> · 38,00 a 41,99% → <b>4%</b> · 42% ou mais → <b>6%</b>, se a loja bater a meta.</p>
+    <p style="margin:0 0 8px">Aplicada sobre a <b>venda individual</b> de cada colaborador.
+    Fitoterápicos, Oficinais e Ortopédicos pagam <b>sempre 3%</b>, qualquer que seja o mix.
+    Prêmio de <b>R$ 150</b> por vendedor quando a loja bate 100% da meta.</p>
+    <div class="aviso info" style="margin:12px 0 0">A confirmar com o financeiro: quando o mix
+    fica em 42% ou mais mas a loja <b>não</b> bate a meta, a faixa cai para 4% (o que este painel
+    está aplicando) ou para 3%? A regra recebida não diz, e isso muda o pagamento.</div>
+  </div></div>`;
+};
+
+RENDER.admin = () => {
+  const us = lerUsuarios();
+  const unids = ['TODAS'].concat((DADOS.meta && DADOS.meta.unidades) || []);
+  return `
+  ${bloco('Usuários', tabela([{t:'Nome',k:'n',forte:true},{t:'E-mail',k:'e'},{t:'Perfil',k:'p'},
+    {t:'Unidade',k:'u'},{t:'Situação',k:'s'},{t:'Ações',k:'a'}],
+    us.map((u,i)=>({n:esc(u.nome), e:esc(u.email),
+      p:`<select data-acao="perfil" data-i="${i}">${Object.entries(PERFIS).map(([k,v])=>
+          `<option value="${k}" ${u.perfil===k?'selected':''}>${esc(v.nome)}</option>`).join('')}</select>`,
+      u:`<select data-acao="unidade" data-i="${i}">${unids.map(x=>
+          `<option ${u.unidade===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`,
+      s:(u.status==='ativo'?'<span class="pill p-ok">ativo</span>'
+        :(u.status==='bloqueado'?'<span class="pill p-crit">bloqueado</span>'
+        :'<span class="pill p-warn">pendente</span>'))
+        + (u.trocar?' <span class="pill p-warn">senha provisória</span>':''),
+      a:`<button class="btn sm" data-acao="alternar" data-i="${i}">${u.status==='ativo'?'Bloquear':'Ativar'}</button>
+         <button class="btn sm" data-acao="resetar" data-i="${i}" title="Volta para ros2026 e obriga a trocar">Resetar senha</button>`
+    }))), 'a mudança vale a partir do próximo login do usuário')}
+
+  ${bloco('O que cada perfil enxerga', `<div class="rolagem"><table><thead><tr>
+      <th>Perfil</th><th>Unidades</th>${MODULOS.filter(m=>m.id!=='admin').map(m=>
+        `<th class="r" style="writing-mode:vertical-rl;transform:rotate(180deg);padding:9px 4px">${esc(m.nome)}</th>`).join('')}
+    </tr></thead><tbody>
+      ${Object.entries(PERFIS).map(([k,p])=>`<tr>
+        <td class="forte">${esc(p.nome)}</td>
+        <td>${p.unidades==='*'?'todas':'só a própria'}</td>
+        ${MODULOS.filter(m=>m.id!=='admin').map(m=>
+          `<td class="r">${(p.modulos==='*'||p.modulos.includes(m.id))?'●':'<span style="opacity:.25">○</span>'}</td>`).join('')}
+      </tr>`).join('')}
+    </tbody></table></div>`, 'a matriz é a fonte da verdade — mudar aqui muda o menu de todo mundo daquele perfil')}
+
+  ${bloco('Origem dos dados', tabela([{t:'Item',k:'i',forte:true},{t:'Valor',k:'v'}],[
+    {i:'Cliente', v:esc(DADOS.meta.cliente)}, {i:'ERP', v:esc(DADOS.meta.erp)},
+    {i:'Última coleta', v:esc(DADOS.meta.atualizado_em)},
+    {i:'Módulos alimentados', v:esc((DADOS.meta.modulos_ativos||[]).join(', ')||'—')},
+    {i:'Origem do arquivo', v:esc(DADOS._origem||'semente de demonstração')}
+  ]))}`;
+};
+
+/* ---------- 6. FILTRO DE PERÍODO ----------------------------------------- */
+const rotuloPeriodo = () => ({hoje:'hoje', ontem:'ontem', semana:'na semana', mes:'no mês'}[periodo]);
+function filtroPeriodo(){
+  return `<div class="filtros"><div class="seg" id="seg-periodo">
+    ${[['hoje','Hoje'],['ontem','Ontem'],['semana','Semana'],['mes','Mês']].map(([k,t])=>
+      `<button data-per="${k}" class="${periodo===k?'on':''}">${t}</button>`).join('')}
+  </div></div>`;
+}
+
+/* ---------- 7. DESENHO E EVENTOS ----------------------------------------- */
+function desenharMenu(){
+  const el = document.getElementById('menu');
+  let html = '', grupoAtual = '';
+  MODULOS.forEach(m => {
+    if(!podeModulo(usuario, m.id)) return;
+    if(m.grupo !== grupoAtual){ grupoAtual = m.grupo; html += `<div class="grupo">${esc(m.grupo)}</div>`; }
+    html += `<button data-mod="${m.id}" class="${m.id===moduloAtivo?'on':''}">
+      <span class="ic">${m.ic}</span>${esc(m.nome)}</button>`;
+  });
+  el.innerHTML = html;
+}
+function desenhar(){
+  const m = MODULOS.find(x => x.id === moduloAtivo);
+  document.getElementById('titulo').textContent = m ? m.nome : '—';
+  const alvo = document.getElementById('conteudo');
+  try{
+    alvo.innerHTML = podeModulo(usuario, moduloAtivo)
+      ? (RENDER[moduloAtivo] ? RENDER[moduloAtivo]() : aguardando(m.nome,'Módulo ainda não implementado.'))
+      : `<div class="bloco"><div class="vazio"><b>Sem permissão</b>
+          Seu perfil não tem acesso a este módulo.</div></div>`;
+  }catch(err){
+    alvo.innerHTML = `<div class="bloco"><div class="vazio"><b>Erro ao desenhar o módulo</b>
+      ${esc(err.message)}</div></div>`;
+    console.error(err);
+  }
+  desenharMenu();
+}
+
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if(!b) return;
+  if(b.dataset.mod){ moduloAtivo = b.dataset.mod; document.getElementById('lateral').classList.remove('aberta'); desenhar(); return; }
+  if(b.dataset.per){ periodo = b.dataset.per; desenhar(); return; }
+  if(b.dataset.dim){ DADOS.rankings._sel = b.dataset.dim; desenhar(); return; }
+  if(b.dataset.gran){ DADOS.fluxo._gran = b.dataset.gran; desenhar(); return; }
+  if(b.dataset.real !== undefined){ DADOS.fluxo._real = b.dataset.real === '1'; desenhar(); return; }
+  if(b.id === 'cp-limpar'){ DADOS.contas_pagar._dia = ''; desenhar(); return; }
+  if(b.id === 'cv-baixar'){
+    const cv = DADOS.convenios || {};
+    const cod = (cv._cod !== undefined) ? cv._cod : (cv.config[0]||{}).cod;
+    const per = cv._periodo || (cv.periodos||[])[0];
+    const conf = (cv.config||[]).find(c => String(c.cod)===String(cod)) || {};
+    convBaixar(cod, per, conf.nome || 'Convenio',
+               conf.formato || (String(cod)==='113' ? 'xlsx' : 'csv'));
+    return;
+  }
+  if(b.id === 'cm-xls'){
+    const cm = DADOS.comissoes || {};
+    const mes = cm._mes || (cm.meses||[])[0];
+    const metas = (CFG_PAINEL.metas && CFG_PAINEL.metas[mes]) || (cm.metas && cm.metas[mes]) || {};
+    const unis = daUnidade((cm.por_unidade||[]).filter(r => r.mes === mes));
+    const porUni = {};
+    unis.forEach(u => {
+      const meta = +metas[u.unidade] || 0;
+      const bateu = meta > 0 && u.venda_total >= meta;
+      porUni[u.unidade] = {meta, bateu, faixa: faixaComissao(u.mix_gs_pct, bateu), mix:u.mix_gs_pct};
+    });
+    const linhas = daUnidade((cm.por_vendedor||[]).filter(r => r.mes === mes)).map(v => {
+      const u = porUni[v.unidade] || {faixa:3, bateu:false, meta:0, mix:0};
+      const cGS = (v.venda_gs||0) * u.faixa/100;
+      const cFix = (v.venda_fixa3||0) * 0.03;
+      const premio = u.bateu ? 150 : 0;
+      return {vendedor:v.vendedor, unidade:v.unidade, meta_loja:u.meta,
+        mix_loja:u.mix, bateu: u.bateu ? 'Sim' : 'Não', faixa:u.faixa,
+        venda_total:v.venda_total, venda_gs:v.venda_gs, comissao_gs:+cGS.toFixed(2),
+        venda_fixa3:v.venda_fixa3, comissao_fixa3:+cFix.toFixed(2),
+        premio, total:+(cGS+cFix+premio).toFixed(2)};
+    }).sort((a,b)=>b.total-a.total);
+    baixarXLS('Comissoes-' + mes, [
+      {t:'Vendedor',k:'vendedor'},{t:'Unidade',k:'unidade'},
+      {t:'Meta da loja',k:'meta_loja'},{t:'Mix G+S da loja %',k:'mix_loja'},
+      {t:'Bateu a meta',k:'bateu'},{t:'Faixa %',k:'faixa'},
+      {t:'Venda total',k:'venda_total'},{t:'Venda G+S',k:'venda_gs'},
+      {t:'Comissão G+S',k:'comissao_gs'},
+      {t:'Fito/Ofic/Orto',k:'venda_fixa3'},{t:'Comissão 3%',k:'comissao_fixa3'},
+      {t:'Prêmio',k:'premio'},{t:'Total a pagar',k:'total'}], linhas, {
+      titulo:'Apuração de comissões — ' + mes,
+      subtitulo:'Faixa pelo mix da loja: até 37,99% = 3% · 38 a 41,99% = 4% · 42%+ = 6% se bater a meta. '
+              + 'Fitoterápicos, oficinais e ortopédicos pagam sempre 3%.',
+      filtros:[{rotulo:'Competência', valor:mes},
+               {rotulo:'Lojas que bateram a meta',
+                valor: Object.values(porUni).filter(u=>u.bateu).length + ' de ' + unis.length}]
+    });
+    return;
+  }
+  if(b.id === 'rk-config'){ DADOS._editandoRanking = !DADOS._editandoRanking; desenhar(); return; }
+  if(b.id === 'rk-salvar'){
+    const mapa = {};
+    document.querySelectorAll('[data-exc]').forEach(i => { if(!i.checked) mapa[i.dataset.exc] = true; });
+    b.disabled = true; b.textContent = 'Salvando…';
+    gravarConfig('exclusoes', mapa).then(r => {
+      recado(r.msg, r.ok ? 'ok' : 'erro');
+      if(r.ok) DADOS._editandoRanking = false;
+      desenhar();
+    });
+    return;
+  }
+  if(b.id === 'rk-xls'){
+    const fora = new Set(Object.keys(CFG_PAINEL.exclusoes||{}).filter(k=>CFG_PAINEL.exclusoes[k]));
+    const ranq = daUnidade(DADOS.vendedores).filter(v => !fora.has(String(v.cod||v.vendedor)))
+                 .sort((a,b)=>b.venda-a.venda)
+                 .map((v,i) => Object.assign({posicao:i+1, premiado: i<3 ? 'Sim' : ''}, v));
+    baixarXLS('Ranking-de-vendedores', [
+      {t:'#',k:'posicao'},{t:'Vendedor',k:'vendedor'},{t:'Unidade',k:'unidade'},
+      {t:'Venda',k:'venda'},{t:'Margem %',k:'margem_pct'},{t:'Ticket médio',k:'ticket_medio'},
+      {t:'Itens/cupom',k:'itens_por_cupom'},{t:'Atendimentos',k:'atendimentos'},
+      {t:'Crescimento %',k:'crescimento_pct'},{t:'Prêmio',k:'premiado'}], ranq, {
+      titulo:'Ranking de vendedores',
+      subtitulo:'Classificação recalculada sobre quem está no ranking.',
+      filtros:[{rotulo:'Fora do ranking', valor: fora.size ? fora.size + ' colaborador(es)' : null}]
+    });
+    return;
+  }
+  if(b.id === 'fe-limpar'){ DADOS._fe = {}; desenhar(); return; }
+  if(b.id === 'fe-xls'){
+    const f = DADOS._fe || {};
+    const el = (DADOS.elasticidade||[]).filter(r =>
+      (!f.categoria||r.categoria===f.categoria) && (!f.laboratorio||r.laboratorio===f.laboratorio) &&
+      (!f.principio||r.principio===f.principio) && (!f.grupo||r.grupo===f.grupo));
+    baixarXLS('Elasticidade', [{t:'Produto',k:'produto'},{t:'Categoria',k:'categoria'},
+      {t:'Laboratório',k:'laboratorio'},{t:'Princípio ativo',k:'principio'},{t:'Grupo',k:'grupo'},
+      {t:'Preço médio',k:'preco_medio'},{t:'Var. preço %',k:'var_preco_pct'},
+      {t:'Var. volume %',k:'var_volume_pct'},{t:'Elasticidade',k:'elasticidade'},
+      {t:'Margem doada',k:'margem_perdida'}], el, {
+      titulo: 'Elasticidade de preço',
+      subtitulo: 'Variação do volume dividida pela variação do preço praticado.',
+      filtros: [{rotulo:'Categoria',valor:f.categoria},{rotulo:'Laboratório',valor:f.laboratorio},
+                {rotulo:'Princípio ativo',valor:f.principio},{rotulo:'Grupo',valor:f.grupo}]
+    });
+    return;
+  }
+  if(b.dataset.conv){ DADOS.convenios._cod = b.dataset.conv; desenhar(); return; }
+  if(b.dataset.convper){ DADOS.convenios._periodo = b.dataset.convper; desenhar(); return; }
+  if(b.dataset.mes){ DADOS.comissoes._mes = b.dataset.mes; desenhar(); return; }
+  if(b.id === 'cm-salvar'){
+    /* As metas definem quanto cada vendedor recebe. Ficam no bloco de dados e
+       serão gravadas pelo Portal — nunca só no navegador, senão o fechamento
+       do mês passaria a depender de qual PC abriu o painel. */
+    const mes = DADOS.comissoes._mes || DADOS.comissoes.meses[0];
+    DADOS.comissoes.metas = DADOS.comissoes.metas || {};
+    DADOS.comissoes.metas[mes] = DADOS.comissoes.metas[mes] || {};
+    document.querySelectorAll('[data-meta]').forEach(i => {
+      DADOS.comissoes.metas[mes][i.dataset.meta] = +i.value || 0; });
+    desenhar();
+    return;
+  }
+  if(b.id === 'ant-calc'){
+    DADOS.moeda.parametros = DADOS.moeda.parametros || {};
+    DADOS.moeda.parametros.pct_antecipado = (+document.getElementById('ant-pct').value||0)/100;
+    DADOS.moeda.parametros.taxa_antecipacao = (+document.getElementById('ant-taxa').value||0)/100;
+    desenhar(); return;
+  }
+  if(b.id === 'oc-calc'){
+    const o = DADOS.estoque.orcamento;
+    o.meta_amortizacao = +document.getElementById('oc-amort').value || 0;
+    o.pct_reserva = (+document.getElementById('oc-reserva').value||0)/100;
+    o.reserva = o.cmv_30d * o.pct_reserva;
+    o.teto = Math.min(o.cmv_30d - o.reserva - o.meta_amortizacao, o.cmv_projetado);
+    desenhar(); return;
+  }
+  if(b.dataset.acao === 'alternar'){
+    const us = lerUsuarios(); const u = us[+b.dataset.i];
+    u.status = u.status === 'ativo' ? 'bloqueado' : 'ativo';
+    gravarUsuarios(us); desenhar(); return;
+  }
+  if(b.dataset.acao === 'resetar'){
+    const us = lerUsuarios(); const u = us[+b.dataset.i];
+    u.senha = hash('ros2026'); u.trocar = true;
+    gravarUsuarios(us); desenhar(); return;
+  }
+  if(b.id === 'btn-menu'){ document.getElementById('lateral').classList.toggle('aberta'); return; }
+  if(b.id === 'btn-sair'){
+    Guarda.apagar(CHAVE_SESSAO);
+    if(naNuvem()){ SB.auth.signOut().finally(()=>location.reload()); } else { location.reload(); }
+    return; }
+  if(b.id === 'btn-atualizar'){
+    if(naNuvem()){
+      b.disabled = true; const t = b.textContent; b.textContent = '↻ Buscando…';
+      SB.rpc('painel').then(({data,error})=>{
+        if(!error && data && data.dados){
+          DADOS = data.dados;
+          DADOS._origem = 'nuvem · ' + NUVEM_CONFIG.url.replace(/^https:\/\//,'');
+          document.getElementById('selo-atualizado').textContent = DADOS.meta.atualizado_em;
+          desenhar();
+        }
+      }).finally(()=>{ b.disabled = false; b.textContent = t; });
+    } else { carregarDados(true); }
+    return; }
+  if(b.id === 'btn-tema'){
+    const atual = document.documentElement.getAttribute('data-theme');
+    const novo = atual === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', novo);
+    Guarda.gravar(CHAVE_TEMA, novo); return;
+  }
+});
+document.addEventListener('change', ev => {
+  const el = ev.target;
+  if(el.id === 'sel-unidade'){ unidadeAtiva = el.value; desenhar(); return; }
+  if(el.id === 'cp-dia'){ DADOS.contas_pagar._dia = el.value; desenhar(); return; }
+  if(el.id === 'cv-import'){ importarMatriculas(el.files && el.files[0]); el.value=''; return; }
+  if(el.dataset && el.dataset.fe){
+    DADOS._fe = DADOS._fe || {};
+    DADOS._fe[el.dataset.fe] = el.value || null; desenhar(); return;
+  }
+  if(el.dataset && el.dataset.acao === 'perfil'){
+    const us = lerUsuarios(); us[+el.dataset.i].perfil = el.value; gravarUsuarios(us); desenhar(); return;
+  }
+  if(el.dataset && el.dataset.acao === 'unidade'){
+    const us = lerUsuarios(); us[+el.dataset.i].unidade = el.value; gravarUsuarios(us); desenhar(); return;
+  }
+});
+/* drill-down do vendedor */
+document.addEventListener('click', ev => {
+  const tr = ev.target.closest('tr[data-drill]'); if(!tr) return;
+  const nome = tr.dataset.drill;
+  const v = (DADOS.vendedores||[]).find(x => x.vendedor === nome);
+  const alvo = document.getElementById('drill-vendedor'); if(!alvo || !v) return;
+  alvo.innerHTML = bloco(`${nome} — por categoria`, tabela([
+    {t:'Categoria',k:'c',forte:true},{t:'Venda',k:'v',r:true},{t:'Part.',k:'p',r:true},{t:'Margem',k:'m',r:true}],
+    (v.categorias||[]).map(c=>({c:esc(c.categoria), v:R0(c.venda),
+      p:P(v.venda?c.venda/v.venda*100:0), m:P(c.margem_pct)}))), 'drill-down do ranking');
+  alvo.scrollIntoView({behavior:'smooth', block:'nearest'});
+});
+
+/* ---------- 8. LOGIN ------------------------------------------------------ */
+function msg(txt, tipo){
+  document.getElementById('msg-login').innerHTML = txt ? `<div class="aviso ${tipo}">${esc(txt)}</div>` : '';
+}
+document.getElementById('ir-cadastro').onclick = () => {
+  document.getElementById('form-entrar').classList.add('hide');
+  document.getElementById('form-cadastro').classList.remove('hide');
+  document.getElementById('sub-login').textContent = 'Solicitar acesso ao painel';
+  const sp = document.getElementById('c-perfil');
+  sp.innerHTML = Object.entries(PERFIS).filter(([k])=>k!=='admin_ros')
+    .map(([k,v])=>`<option value="${k}">${esc(v.nome)}</option>`).join('');
+  const su = document.getElementById('c-unidade');
+  su.innerHTML = ['TODAS'].concat(DADOS.meta.unidades||[]).map(u=>`<option>${esc(u)}</option>`).join('');
+  msg('');
+};
+document.getElementById('ir-entrar').onclick = () => {
+  document.getElementById('form-cadastro').classList.add('hide');
+  document.getElementById('form-entrar').classList.remove('hide');
+  document.getElementById('sub-login').textContent = 'Painel gerencial · acesso restrito';
+  msg('');
+};
+document.getElementById('form-entrar').onsubmit = async ev => {
+  ev.preventDefault();
+  const email = document.getElementById('in-email').value.trim().toLowerCase();
+  const senha = document.getElementById('in-senha').value;
+
+  if(naNuvem()) return entrarPelaNuvem(email, senha);
+
+  const u = lerUsuarios().find(x => x.email.toLowerCase() === email);
+  if(!u || u.senha !== hash(senha)) return msg('E-mail ou senha incorretos.','erro');
+  if(u.status === 'pendente')  return msg('Cadastro ainda não aprovado pela administração.','erro');
+  if(u.status === 'bloqueado') return msg('Acesso bloqueado. Procure o administrador.','erro');
+  if(u.trocar) return pedirTrocaSenha(u);
+  Guarda.gravar(CHAVE_SESSAO, u.email);
+  entrar(u);
+};
+
+/* Login de verdade: quem confere a senha é o servidor, e o dado só desce se o
+   contrato estiver ativo — a regra mora no banco, não aqui. */
+async function entrarPelaNuvem(email, senha){
+  const botao = document.querySelector('#form-entrar button[type=submit]');
+  const rotulo = botao.textContent;
+  botao.disabled = true; botao.textContent = 'Entrando…';
+  msg('');
+  try{
+    const { error } = await SB.auth.signInWithPassword({ email, password: senha });
+    if(error){
+      const m = /invalid login/i.test(error.message)
+        ? 'E-mail ou senha incorretos.'
+        : (/confirm/i.test(error.message)
+            ? 'Confirme seu e-mail pelo link que enviamos antes de entrar.'
+            : error.message);
+      return msg(m,'erro');
+    }
+    await abrirComDadosDaNuvem();
+  }catch(e){
+    msg('Não consegui falar com o servidor. Verifique a internet.','erro');
+    console.error(e);
+  }finally{
+    botao.disabled = false; botao.textContent = rotulo;
+  }
+}
+
+/* Uma chamada só traz dado + permissão. Evita montar a tela antes de saber o
+   que a pessoa pode ver — e é onde o corte por inadimplência aparece. */
+async function abrirComDadosDaNuvem(){
+  const { data, error } = await SB.rpc('painel');
+  if(error){ msg('Erro ao carregar os dados: ' + error.message,'erro'); return false; }
+
+  /* Textos com acento moram AQUI, e não no banco: assim dá para melhorar a
+     palavra sem precisar rodar SQL de novo no cliente. */
+  const RECADO = {
+    sem_perfil: 'Seu usuário ainda não foi liberado. Procure o administrador.',
+    bloqueado:  'Acesso suspenso. Entre em contato com a ROS Estratégia.',
+    sem_dados:  'A primeira coleta ainda não chegou.'
+  };
+
+  if(data && data.erro && data.erro !== 'sem_dados'){
+    msg(RECADO[data.erro] || data.mensagem || 'Acesso não liberado.', 'erro');
+    await SB.auth.signOut();
+    return false;
+  }
+
+  /* Sem dado ainda NÃO é falha de acesso: a pessoa entrou. Ela vê o painel
+     montado, com o aviso de que a coleta não chegou. Devolver para a tela de
+     login quem acabou de logar parece erro — e no primeiro dia de um cliente
+     novo, esse é o estado normal. */
+  if(data && data.erro === 'sem_dados'){
+    const s0 = await SB.auth.getUser();
+    const email0 = (s0.data && s0.data.user && s0.data.user.email) || '';
+    DADOS = { meta: { cliente: 'Aguardando primeira coleta', erp: '—',
+                      atualizado_em: '—', unidades: [], modulos_ativos: [] },
+              _origem: 'nuvem · sem dados', _semColeta: true };
+    entrar({ nome: email0, email: email0, perfil: 'admin_ros', unidade: 'TODAS', status:'ativo' });
+    const faixa = document.getElementById('faixa-demo');
+    faixa.innerHTML = '⏳ <b>A primeira coleta ainda não chegou.</b> ' +
+      'Rode o coletor na máquina do cliente com o token configurado — os painéis acendem sozinhos.';
+    faixa.classList.remove('hide');
+    return true;
+  }
+  DADOS = data.dados;
+  DADOS._origem = 'nuvem · ' + NUVEM_CONFIG.url.replace(/^https:\/\//,'');
+  const s = await SB.auth.getUser();
+  const email = (s.data && s.data.user && s.data.user.email) || '';
+  entrar({ nome: (s.data.user.user_metadata && s.data.user.user_metadata.nome) || email,
+           email, perfil: data.perfil.papel, unidade: data.perfil.unidade, status:'ativo' });
+  return true;
+}
+
+/* Convite por e-mail: o link do Supabase volta com o token na URL e a pessoa
+   define a senha aqui. É o "cadastra a primeira senha e salva" do fluxo. */
+async function definirPrimeiraSenha(){
+  document.getElementById('form-entrar').classList.add('hide');
+  document.getElementById('form-cadastro').classList.add('hide');
+  document.getElementById('sub-login').textContent = 'Bem-vindo — defina sua senha';
+  let f = document.getElementById('form-convite');
+  if(!f){
+    f = document.createElement('form'); f.id = 'form-convite';
+    f.innerHTML = `
+      <label class="campo"><span>Sua senha</span>
+        <input type="password" id="cv-1" minlength="8" autocomplete="new-password" required></label>
+      <label class="campo"><span>Repita a senha</span>
+        <input type="password" id="cv-2" minlength="8" autocomplete="new-password" required></label>
+      <button class="btn primario" type="submit">Salvar e entrar</button>
+      <div class="dica">Mínimo de 8 caracteres. Ninguém mais vê esta senha, nem a ROS.</div>`;
+    document.querySelector('.card-login').appendChild(f);
+    f.onsubmit = async ev => {
+      ev.preventDefault();
+      const a = document.getElementById('cv-1').value, b = document.getElementById('cv-2').value;
+      if(a !== b)      return msg('As duas senhas não são iguais.','erro');
+      if(a.length < 8) return msg('Use pelo menos 8 caracteres.','erro');
+      const { error } = await SB.auth.updateUser({ password: a });
+      if(error) return msg(error.message,'erro');
+      history.replaceState(null,'',location.pathname);   // limpa o token da barra
+      f.classList.add('hide');
+      await abrirComDadosDaNuvem();
+    };
+  }
+  f.classList.remove('hide');
+  msg('Defina uma senha para começar a usar o painel.','info');
+  document.getElementById('cv-1').focus();
+}
+
+/* Troca obrigatória no primeiro acesso — sem isso todos compartilham a mesma
+   senha, ninguém é identificável, e a permissão por perfil vira enfeite. */
+function pedirTrocaSenha(u){
+  document.getElementById('form-entrar').classList.add('hide');
+  document.getElementById('form-cadastro').classList.add('hide');
+  document.getElementById('sub-login').textContent = 'Primeiro acesso — defina sua senha';
+  let f = document.getElementById('form-troca');
+  if(!f){
+    f = document.createElement('form'); f.id = 'form-troca';
+    f.innerHTML = `
+      <label class="campo"><span>Nova senha</span>
+        <input type="password" id="t-1" minlength="6" autocomplete="new-password" required></label>
+      <label class="campo"><span>Repita a nova senha</span>
+        <input type="password" id="t-2" minlength="6" autocomplete="new-password" required></label>
+      <button class="btn primario" type="submit">Salvar e entrar</button>
+      <div class="dica">Mínimo de 6 caracteres. Ninguém mais vê essa senha —
+        nem o administrador: o painel guarda só uma marca dela, não o texto.</div>`;
+    document.querySelector('.card-login').appendChild(f);
+    f.onsubmit = ev => {
+      ev.preventDefault();
+      const a = document.getElementById('t-1').value, b = document.getElementById('t-2').value;
+      if(a !== b) return msg('As duas senhas não são iguais.','erro');
+      if(a.length < 6) return msg('Use pelo menos 6 caracteres.','erro');
+      if(a === 'ros2026') return msg('Escolha uma senha diferente da provisória.','erro');
+      const alvo = f.dataset.email;
+      if(!trocarSenha(alvo, a)) return msg('Não consegui salvar. Tente de novo.','erro');
+      Guarda.gravar(CHAVE_SESSAO, alvo);
+      f.classList.add('hide');
+      entrar(lerUsuarios().find(x => x.email === alvo));
+    };
+  }
+  f.dataset.email = u.email;
+  f.classList.remove('hide');
+  msg('Sua senha é provisória. Defina uma nova para continuar.','info');
+  document.getElementById('t-1').focus();
+}
+document.getElementById('form-cadastro').onsubmit = ev => {
+  ev.preventDefault();
+  const us = lerUsuarios();
+  const email = document.getElementById('c-email').value.trim().toLowerCase();
+  if(us.some(x => x.email.toLowerCase() === email)) return msg('Já existe cadastro com este e-mail.','erro');
+  us.push({nome:document.getElementById('c-nome').value.trim(), email,
+    senha:hash(document.getElementById('c-senha').value),
+    perfil:document.getElementById('c-perfil').value,
+    unidade:document.getElementById('c-unidade').value, status:'pendente'});
+  gravarUsuarios(us);
+  document.getElementById('ir-entrar').click();
+  msg('Solicitação enviada. Um administrador precisa aprovar antes do primeiro acesso.','ok');
+};
+
+function entrar(u){
+  usuario = u;
+  document.getElementById('tela-login').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  document.getElementById('rod-usuario').textContent = u.nome;
+  document.getElementById('rod-perfil').textContent = PERFIS[u.perfil].nome;
+  document.getElementById('selo-cliente').textContent = DADOS.meta.cliente + ' · ' + DADOS.meta.erp;
+  document.getElementById('selo-atualizado').textContent = DADOS.meta.atualizado_em;
+  document.getElementById('faixa-demo').classList.toggle('hide', !DADOS.meta.demonstracao);
+  const perm = unidadesPermitidas(u);
+  const sel = document.getElementById('sel-unidade');
+  const opts = (PERFIS[u.perfil].unidades === '*') ? ['TODAS'].concat(perm) : perm;
+  sel.innerHTML = opts.map(x => `<option>${esc(x)}</option>`).join('');
+  unidadeAtiva = opts[0] || 'TODAS';
+  sel.value = unidadeAtiva;
+  const primeiro = MODULOS.find(m => podeModulo(u, m.id));
+  moduloAtivo = primeiro ? primeiro.id : 'visao';
+  desenhar();
+  /* config chega depois; quando chegar, redesenha com metas e exclusoes */
+  carregarConfig().then(() => desenhar());
+}
+
+/* ---------- 8b. TELA EMERGENTE (drill) + EXPORTAÇÃO EXCEL ---------------- */
+/* A curva ABC responde "quais categorias pesam". A pergunta seguinte é sempre
+   "o que tem DENTRO" — e é aí que o gestor decide compra e preço. Por isso o
+   drill é uma tela emergente com filtros por laboratório, princípio ativo e
+   grupo, e com saída para Excel: a decisão de compra costuma sair da tela e ir
+   para uma reunião ou para o fornecedor. */
+let MODAL = null;
+
+function abrirDrill(cfg){
+  MODAL = Object.assign({sel:{}, ordenar:null}, cfg);
+  desenharModal();
+  document.getElementById('fundo-modal').classList.add('on');
+  document.getElementById('modal-fechar').focus();
+}
+function fecharDrill(){
+  document.getElementById('fundo-modal').classList.remove('on');
+  MODAL = null;
+}
+function linhasFiltradas(){
+  if(!MODAL) return [];
+  return MODAL.base.filter(r =>
+    (MODAL.filtros||[]).every(f => !MODAL.sel[f.campo] || r[f.campo] === MODAL.sel[f.campo]));
+}
+function desenharModal(){
+  if(!MODAL) return;
+  document.getElementById('modal-titulo').textContent = MODAL.titulo;
+  document.getElementById('modal-sub').textContent = MODAL.sub || '';
+
+  /* as opções de cada filtro saem do próprio recorte — se o cliente não tem
+     princípio ativo na base, o filtro simplesmente não aparece */
+  document.getElementById('modal-filtros').innerHTML = (MODAL.filtros||[]).map(f => {
+    const vals = [...new Set(MODAL.base.map(r => r[f.campo]).filter(Boolean))].sort();
+    if(!vals.length) return '';
+    return `<label class="campo"><span>${esc(f.rotulo)}</span>
+      <select data-filtro="${esc(f.campo)}">
+        <option value="">Todos</option>
+        ${vals.map(v=>`<option ${MODAL.sel[f.campo]===v?'selected':''}>${esc(v)}</option>`).join('')}
+      </select></label>`;
+  }).join('') + `<button class="btn sm" id="modal-limpar">Limpar filtros</button>`;
+
+  let linhas = linhasFiltradas();
+  if(MODAL.ordenar){
+    const {k, desc} = MODAL.ordenar;
+    linhas = [...linhas].sort((a,b) => {
+      const x=a[k], y=b[k];
+      const n = (typeof x==='number' && typeof y==='number') ? x-y : String(x).localeCompare(String(y),'pt-BR');
+      return desc ? -n : n;
+    });
+  }
+  const cols = MODAL.colunas;
+  document.getElementById('modal-corpo').innerHTML = linhas.length ? `
+    <div class="rolagem"><table><thead><tr>${cols.map(c=>
+      `<th class="${c.r?'r':''}" data-ord="${esc(c.k)}" style="cursor:pointer" title="ordenar">${esc(c.t)}${
+        MODAL.ordenar&&MODAL.ordenar.k===c.k ? (MODAL.ordenar.desc?' ▾':' ▴') : ''}</th>`).join('')}
+      </tr></thead><tbody>
+      ${linhas.slice(0,400).map(r=>`<tr>${cols.map(c=>
+        `<td class="${c.r?'r num':''} ${c.forte?'forte':''}">${c.fmt?c.fmt(r[c.k],r):esc(r[c.k])}</td>`).join('')}</tr>`).join('')}
+      </tbody></table></div>`
+    : `<div class="vazio"><b>Nada neste recorte</b>Ajuste ou limpe os filtros.</div>`;
+
+  document.getElementById('modal-contagem').textContent =
+    `${nf0.format(linhas.length)} linha(s)` + (linhas.length>400 ? ' — a tela mostra 400; o Excel leva todas' : '');
+}
+
+/* ---- EXCEL --------------------------------------------------------------
+   SpreadsheetML, sem biblioteca externa: abre no Excel com numero como NUMERO,
+   nao como texto (CSV erra a virgula decimal em pt-BR).
+
+   Duas abas, sempre:
+     Capa  - o que e o relatorio, de qual cliente, com que recorte, quando saiu.
+             Existe porque planilha sem contexto circula por e-mail e vira
+             numero sem dono: ninguem lembra de que dia nem de que filtro era.
+     Dados - o conteudo, com cabecalho na identidade da ROS.
+
+   Sem imagem: o formato nao suporta. A marca e tipografica.
+------------------------------------------------------------------------- */
+const ROS = { navy:'#1A2134', ouro:'#BD9D64', cinza:'#69748A', linha:'#D5DCE6' };
+
+function baixarXLS(nomeArq, colunas, linhas, contexto){
+  contexto = contexto || {};
+  const esc = v => String(v===null||v===undefined?'':v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  /* O formato vem da COLUNA, nao do valor: assim uma coluna de dinheiro
+     zerada continua saindo como dinheiro, e nao como numero solto. */
+  const formato = c => {
+    const t = (c.t||'').toLowerCase();
+    if(/%|margem|part\.|acum|taxa|elasticidade|atingimento|mix|crescimento/.test(t)) return 'pct';
+    if(/venda|cmv|valor|estoque|custo|pre[cç]o|saldo|receber|pagar|comiss|pr[eê]mio|teto|meta|ticket|total|ganho|diferen/.test(t)) return 'moeda';
+    if(/qtd|itens|cupom|cupons|dias|skus|atend|cobertura|posi|matr[ií]cula|c[oó]digo/.test(t)) return 'int';
+    return 'texto';
+  };
+  const tipos = colunas.map(formato);
+
+  const cel = (v, tipo) => {
+    const num = (typeof v === 'number' && isFinite(v));
+    const id = num ? ({moeda:'m', pct:'p', int:'i'}[tipo] || 'n') : 't';
+    return '<Cell ss:StyleID="'+id+'"><Data ss:Type="'+(num?'Number':'String')+'">'
+         + (num ? v : esc(v)) + '</Data></Cell>';
+  };
+
+  const agora = new Date();
+  const emitido = agora.toLocaleDateString('pt-BR') + ' as ' +
+                  agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  /* ---- CAPA ---- */
+  const info = [
+    ['Cliente',        (DADOS.meta && DADOS.meta.cliente) || '\u2014'],
+    ['Origem do dado', (DADOS.meta && DADOS.meta.erp) || '\u2014'],
+    ['Unidade',        unidadeAtiva === 'TODAS' ? 'Todas as unidades' : unidadeAtiva],
+    ['Ultima coleta',  (DADOS.meta && DADOS.meta.atualizado_em) || '\u2014'],
+    ['Emitido em',     emitido],
+    ['Linhas',         linhas.length]
+  ];
+  (contexto.filtros||[]).forEach(f => { if(f && f.valor) info.push([f.rotulo, f.valor]); });
+
+  let capa = '';
+  capa += '<Row ss:Height="10"/>';
+  capa += '<Row ss:Height="40"><Cell ss:StyleID="marca" ss:MergeAcross="1"><Data ss:Type="String">ROS</Data></Cell></Row>';
+  capa += '<Row ss:Height="16"><Cell ss:StyleID="submarca" ss:MergeAcross="1"><Data ss:Type="String">ESTRATEGIA EMPRESARIAL</Data></Cell></Row>';
+  capa += '<Row ss:Height="24"/>';
+  capa += '<Row ss:Height="26"><Cell ss:StyleID="titulo" ss:MergeAcross="1"><Data ss:Type="String">'
+        + esc(contexto.titulo || nomeArq) + '</Data></Cell></Row>';
+  if(contexto.subtitulo){
+    capa += '<Row ss:Height="18"><Cell ss:StyleID="rot" ss:MergeAcross="1"><Data ss:Type="String">'
+          + esc(contexto.subtitulo) + '</Data></Cell></Row>';
+  }
+  capa += '<Row ss:Height="18"/>';
+  info.forEach(function(l){
+    const n = (typeof l[1] === 'number');
+    capa += '<Row ss:Height="18"><Cell ss:StyleID="rot"><Data ss:Type="String">'+esc(l[0])+'</Data></Cell>'
+          + '<Cell ss:StyleID="'+(n?'i':'val')+'"><Data ss:Type="'+(n?'Number':'String')+'">'
+          + (n ? l[1] : esc(l[1])) + '</Data></Cell></Row>';
+  });
+  capa += '<Row ss:Height="26"/>';
+  capa += '<Row><Cell ss:StyleID="rodape" ss:MergeAcross="1"><Data ss:Type="String">'
+        + 'Relatorio gerado pelo ROS BI. Os numeros refletem a ultima coleta indicada acima.'
+        + '</Data></Cell></Row>';
+
+  const larguras = colunas.map(function(c){
+    const t = formato(c);
+    return '<Column ss:AutoFitWidth="0" ss:Width="'+(t==='texto'?155:(t==='moeda'?100:72))+'"/>';
+  }).join('');
+
+  const cab = colunas.map(function(c){
+    return '<Cell ss:StyleID="h"><Data ss:Type="String">'+esc(c.t)+'</Data></Cell>';
+  }).join('');
+
+  const corpo = linhas.map(function(r){
+    return '<Row>' + colunas.map(function(c,i){ return cel(r[c.k], tipos[i]); }).join('') + '</Row>';
+  }).join('\n');
+
+  const xml =
+'<?xml version="1.0"?><?mso-application progid="Excel.Sheet"?>\n'+
+'<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n'+
+' xmlns:o="urn:schemas-microsoft-com:office:office"\n'+
+' xmlns:x="urn:schemas-microsoft-com:office:excel"\n'+
+' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n'+
+'<DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">\n'+
+' <Title>'+esc(contexto.titulo || nomeArq)+'</Title>\n'+
+' <Company>ROS Estrategia Empresarial</Company></DocumentProperties>\n'+
+'<Styles>\n'+
+' <Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Montserrat" ss:Size="10"/><Alignment ss:Vertical="Center"/></Style>\n'+
+' <Style ss:ID="marca"><Font ss:FontName="Montserrat" ss:Size="30" ss:Bold="1" ss:Color="'+ROS.navy+'"/><Alignment ss:Vertical="Center"/></Style>\n'+
+' <Style ss:ID="submarca"><Font ss:FontName="Montserrat" ss:Size="9" ss:Bold="1" ss:Color="'+ROS.ouro+'"/></Style>\n'+
+' <Style ss:ID="titulo"><Font ss:FontName="Montserrat" ss:Size="15" ss:Bold="1" ss:Color="'+ROS.navy+'"/>'+
+'<Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="'+ROS.ouro+'"/></Borders></Style>\n'+
+' <Style ss:ID="rot"><Font ss:FontName="Montserrat" ss:Size="10" ss:Color="'+ROS.cinza+'"/></Style>\n'+
+' <Style ss:ID="val"><Font ss:FontName="Montserrat" ss:Size="10" ss:Bold="1" ss:Color="'+ROS.navy+'"/></Style>\n'+
+' <Style ss:ID="rodape"><Font ss:FontName="Montserrat" ss:Size="8" ss:Italic="1" ss:Color="'+ROS.cinza+'"/></Style>\n'+
+' <Style ss:ID="h"><Font ss:FontName="Montserrat" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>'+
+'<Interior ss:Color="'+ROS.navy+'" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/>'+
+'<Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="'+ROS.ouro+'"/></Borders></Style>\n'+
+' <Style ss:ID="t"><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="'+ROS.linha+'"/></Borders></Style>\n'+
+' <Style ss:ID="n"><NumberFormat ss:Format="#,##0.00"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="'+ROS.linha+'"/></Borders></Style>\n'+
+' <Style ss:ID="m"><NumberFormat ss:Format="&quot;R$&quot;\\ #,##0.00"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="'+ROS.linha+'"/></Borders></Style>\n'+
+' <Style ss:ID="p"><NumberFormat ss:Format="0.00&quot;%&quot;"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="'+ROS.linha+'"/></Borders></Style>\n'+
+' <Style ss:ID="i"><NumberFormat ss:Format="#,##0"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="'+ROS.linha+'"/></Borders></Style>\n'+
+'</Styles>\n'+
+'<Worksheet ss:Name="Capa"><Table><Column ss:Width="175"/><Column ss:Width="260"/>\n'+
+capa+'\n</Table>\n'+
+'<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><DoNotDisplayGridlines/></WorksheetOptions>\n'+
+'</Worksheet>\n'+
+'<Worksheet ss:Name="Dados"><Table>'+larguras+'\n'+
+'<Row ss:Height="30">'+cab+'</Row>\n'+corpo+'\n</Table>\n'+
+'<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">'+
+'<FreezePanes/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><ActivePane>2</ActivePane>'+
+'</WorksheetOptions></Worksheet></Workbook>';
+
+  const blob = new Blob(['\ufeff'+xml], {type:'application/vnd.ms-excel'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const carimbo = agora.getFullYear()
+    + String(agora.getMonth()+1).padStart(2,'0')
+    + String(agora.getDate()).padStart(2,'0');
+  /* nome de arquivo limpo: separador virou hifen unico, sem pontas soltas.
+     'Categoria \u00b7 ETICO' -> 'ROS-Categoria-ETICO-20260826.xls' */
+  const limpo = String(nomeArq).replace(/^ROS[-_]/,'')
+    .replace(/[^\w\u00C0-\u00ff]+/g,'-')
+    .replace(/-+/g,'-').replace(/^-|-$/g,'');
+  a.download = 'ROS-' + limpo + '-' + carimbo + '.xls';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/* eventos da tela emergente */
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('button');
+  if(b && b.id === 'modal-fechar'){ fecharDrill(); return; }
+  if(b && b.id === 'modal-limpar'){ MODAL.sel = {}; desenharModal(); return; }
+  if(b && b.id === 'modal-xls'){
+    if(!MODAL) return;
+    const cols = MODAL.colunas.map(c => ({t:c.t, k:c.k}));
+    baixarXLS(MODAL.arquivo || MODAL.titulo, cols, linhasFiltradas(), {
+      titulo: MODAL.titulo,
+      subtitulo: MODAL.sub,
+      /* Os filtros escolhidos vao para a capa: sem isso a planilha circula
+         por e-mail e ninguem lembra de qual recorte ela era. */
+      filtros: (MODAL.filtros||[]).map(f => ({rotulo: f.rotulo, valor: MODAL.sel[f.campo]}))
+    });
+    return;
+  }
+  if(ev.target.id === 'fundo-modal'){ fecharDrill(); return; }
+  const th = ev.target.closest('th[data-ord]');
+  if(th && MODAL){
+    const k = th.dataset.ord;
+    MODAL.ordenar = (MODAL.ordenar && MODAL.ordenar.k === k)
+      ? {k, desc: !MODAL.ordenar.desc} : {k, desc: true};
+    desenharModal(); return;
+  }
+  /* aberturas de drill vindas das telas */
+  const alvo = ev.target.closest('[data-abre]');
+  if(alvo){ drillPor(alvo.dataset.abre, alvo.dataset.valor); return; }
+});
+document.addEventListener('change', ev => {
+  if(ev.target.dataset && ev.target.dataset.filtro && MODAL){
+    MODAL.sel[ev.target.dataset.filtro] = ev.target.value || null;
+    desenharModal();
+  }
+});
+document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && MODAL) fecharDrill(); });
+
+/* colunas do drill de produto — as de dimensão só entram se a base tiver */
+function colunasProduto(base){
+  const tem = c => base.some(r => r[c]);
+  const cols = [{t:'Produto',k:'produto',forte:true}];
+  if(tem('categoria'))   cols.push({t:'Categoria',k:'categoria'});
+  if(tem('laboratorio')) cols.push({t:'Laboratório',k:'laboratorio'});
+  if(tem('principio'))   cols.push({t:'Princípio ativo',k:'principio'});
+  if(tem('grupo'))       cols.push({t:'Grupo',k:'grupo'});
+  cols.push(
+    {t:'Curva',k:'curva'},
+    {t:'Venda',k:'venda',r:true,fmt:v=>R0(v)},
+    {t:'Qtd',k:'qtd',r:true,fmt:v=>N(v)},
+    {t:'Preço médio',k:'preco_medio',r:true,fmt:v=>R(v)},
+    {t:'Margem %',k:'margem_pct',r:true,fmt:v=>P(v)},
+    {t:'Estoque R$',k:'estoque_valor',r:true,fmt:v=>R0(v)},
+    {t:'Cobertura (d)',k:'dias_cobertura',r:true,fmt:v=>N(v)});
+  return cols;
+}
+const FILTROS_PROD = [
+  {campo:'laboratorio', rotulo:'Laboratório'},
+  {campo:'principio',   rotulo:'Princípio ativo'},
+  {campo:'grupo',       rotulo:'Grupo de produtos'},
+  {campo:'curva',       rotulo:'Curva'}
+];
+
+function drillPor(tipo, valor){
+  const prods = noEscopo(DADOS.produtos || []);
+  if(!prods.length){
+    abrirDrill({titulo:'Detalhe por produto', sub:'', base:[], colunas:[{t:'',k:'x'}], filtros:[]});
+    document.getElementById('modal-corpo').innerHTML =
+      `<div class="vazio"><b>Aguardando conector</b>O coletor ainda não emitiu o detalhe por produto.</div>`;
+    return;
+  }
+  let base, titulo;
+  if(tipo === 'categoria'){ base = prods.filter(p => p.categoria === valor); titulo = 'Categoria · ' + valor; }
+  else if(tipo === 'curva'){ base = prods.filter(p => p.curva === valor); titulo = 'Curva ' + valor; }
+  else { base = prods.filter(p => p[tipo] === valor); titulo = (valor || 'Detalhe'); }
+  const venda = base.reduce((a,r)=>a+(r.venda||0),0);
+  abrirDrill({
+    titulo, arquivo: 'ROS_' + titulo,
+    sub: `${nf0.format(base.length)} produtos · venda ${R0(venda)} · unidade: ${unidadeAtiva}`,
+    base, colunas: colunasProduto(base), filtros: FILTROS_PROD,
+    ordenar: {k:'venda', desc:true}
+  });
+}
+
+/* ---------- 8c. FECHAMENTO DE CONVENIO -----------------------------------
+   Cada conveniada recebe num formato diferente, e isso NAO e detalhe: e o
+   arquivo que vira fatura.
+     Novope (10)  -> CSV com ';' e virgula decimal (o Excel pt-BR abre direto;
+                     com ',' o arquivo abre tudo numa coluna so)
+     ZZSAP  (113) -> planilha com MATRICULA na primeira coluna
+
+   A matricula sai, nesta ordem: base importada da conveniada -> matricula do
+   ERP -> "*NAO CONSTA NA BASE". A ordem importa: a base da conveniada e a
+   fonte da verdade; a do ERP costuma estar desatualizada.
+-------------------------------------------------------------------------- */
+const fmtCpf = c => {
+  const d = String(c||'').replace(/\D/g,'').padStart(11,'0');
+  return d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : String(c||'');
+};
+
+function convLinhas(cod, per){
+  const cv = DADOS.convenios || {};
+  const base = (CFG_PAINEL.matriculas && CFG_PAINEL.matriculas.mapa) || {};
+  return (cv.lista||[])
+    .filter(r => String(r.cod)===String(cod) && r.periodo===per)
+    .map(r => {
+      const cpfLimpo = String(r.cpf||'').replace(/\D/g,'');
+      const daBase = base[cpfLimpo];
+      let matricula = '', origem = 'nenhuma';
+      if(daBase && daBase.matricula){ matricula = String(daBase.matricula); origem = 'base'; }
+      else if(r.matricula && String(r.matricula) !== '0'){ matricula = String(r.matricula); origem = 'erp'; }
+      return Object.assign({}, r, {matricula, origem_matricula: origem,
+                                   cpf_formatado: fmtCpf(r.cpf)});
+    })
+    .sort((a,b) => String(a.beneficiario).localeCompare(String(b.beneficiario),'pt-BR'));
+}
+
+function convBaixar(cod, per, nomeConv, formato){
+  const L = convLinhas(cod, per);
+  if(!L.length){ recado('Sem compras nesta competência.','erro'); return; }
+  const slug = String(nomeConv).replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
+
+  if(formato === 'csv'){
+    const linhas = ['Nome do Cliente;CPF;Valor da Compra (R$)'];
+    L.forEach(r => linhas.push([
+      String(r.beneficiario).replace(/;/g,' '),
+      r.cpf_formatado,
+      nf2.format(r.valor)                    // virgula decimal
+    ].join(';')));
+    linhas.push(['TOTAL','', nf2.format(L.reduce((a,r)=>a+(r.valor||0),0))].join(';'));
+    /* BOM: sem ele o Excel le UTF-8 como ANSI e os acentos viram lixo */
+    const blob = new Blob(['\ufeff'+linhas.join('\r\n')], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'Convenio_' + slug + '_' + per + '.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    recado(L.length + ' colaboradores exportados em CSV.','ok');
+    return;
+  }
+
+  const semBase = L.filter(r => !r.matricula).length;
+  const linhas = L.map(r => Object.assign({}, r, {
+    matricula_saida: r.matricula || '*NAO CONSTA NA BASE'
+  }));
+  baixarXLS('Convenio-' + slug + '-' + per, [
+    {t:'Matrícula',            k:'matricula_saida'},
+    {t:'Nome do Colaborador',  k:'beneficiario'},
+    {t:'CPF',                  k:'cpf_formatado'},
+    {t:'Valor da Compra (R$)', k:'valor'}
+  ], linhas, {
+    titulo: 'Fechamento de Convênio — ' + nomeConv,
+    subtitulo: 'Competência ' + per + ' · ' + L.length + ' colaboradores',
+    filtros: [
+      {rotulo:'Convênio', valor:nomeConv},
+      {rotulo:'Competência', valor:per},
+      {rotulo:'Sem matrícula', valor: semBase ? semBase + ' colaborador(es)' : null}
+    ]
+  });
+  if(semBase) recado(semBase + ' sem matrícula — importe a base da conveniada.','erro');
+}
+
+/* Importa a base de matriculas da conveniada.
+   Aceita CSV (qualquer separador) e xlsx. O leitor de xlsx e carregado SO
+   quando alguem importa — nao pesa no acesso de todo dia. */
+async function importarMatriculas(arquivo){
+  if(!arquivo) return;
+  const nome = arquivo.name.toLowerCase();
+  let linhas = [];
+  try{
+    if(nome.endsWith('.csv') || nome.endsWith('.txt')){
+      const txt = await arquivo.text();
+      const sep = (txt.split('\n')[0].match(/;/g)||[]).length >= (txt.split('\n')[0].match(/,/g)||[]).length ? ';' : ',';
+      linhas = txt.split(/\r?\n/).filter(Boolean).map(l => l.split(sep));
+    } else {
+      recado('Lendo a planilha…','ok');
+      if(!window.XLSX){
+        await new Promise((ok, erro) => {
+          const sc = document.createElement('script');
+          sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+          sc.onload = ok; sc.onerror = () => erro(new Error('não consegui carregar o leitor de planilha'));
+          document.head.appendChild(sc);
+        });
+      }
+      const wb = XLSX.read(await arquivo.arrayBuffer(), {type:'array'});
+      linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:false});
+    }
+  }catch(e){ return recado('Não consegui ler o arquivo: ' + e.message, 'erro'); }
+
+  /* Acha as colunas pelo cabecalho; se nao houver cabecalho reconhecivel,
+     assume matricula na 1a e CPF na 3a, que e o layout da ZZSAP. */
+  let iMat = 0, iCpf = 2, iNome = 1, comeco = 0;
+  const cab = (linhas[0]||[]).map(c => String(c||'').toLowerCase());
+  const acha = (...t) => cab.findIndex(c => t.some(x => c.includes(x)));
+  if(cab.some(c => /matr|cpf/.test(c))){
+    const a = acha('matri'), b = acha('cpf'), c2 = acha('nome','colaborador');
+    if(a >= 0) iMat = a;
+    if(b >= 0) iCpf = b;
+    if(c2 >= 0) iNome = c2;
+    comeco = 1;
+  }
+
+  const mapa = {};
+  let lidos = 0;
+  for(let i = comeco; i < linhas.length; i++){
+    const l = linhas[i]; if(!l) continue;
+    const cpf = String(l[iCpf]||'').replace(/\D/g,'');
+    const mat = String(l[iMat]||'').trim();
+    if(cpf.length < 11 || !mat) continue;
+    mapa[cpf.padStart(11,'0')] = {matricula: mat, nome: String(l[iNome]||'').trim()};
+    lidos++;
+  }
+  if(!lidos) return recado('Nenhuma linha com CPF e matrícula válidos.','erro');
+
+  const r = await gravarConfig('matriculas', {
+    mapa, total: lidos, origem: arquivo.name,
+    importado_em: new Date().toLocaleString('pt-BR')
+  });
+  recado(r.ok ? (lidos + ' matrículas importadas. ' + r.msg) : r.msg, r.ok ? 'ok' : 'erro');
+  desenhar();
+}
+
+/* ---------- 9. CARGA DOS DADOS ------------------------------------------- */
+async function carregarDados(recarregar){
+  try{
+    const r = await fetch('../coletor/out/dados.json?t=' + Date.now(), {cache:'no-store'});
+    if(r.ok){ const j = await r.json(); j._origem = 'coletor · out/dados.json'; DADOS = j; }
+  }catch(e){ /* sem servidor / arquivo ausente: fica a semente */ }
+  DADOS.rankings = DADOS.rankings || {dimensoes:[], dados:{}};
+  DADOS.fluxo = DADOS.fluxo || {dias:[]};
+  DADOS.contas_pagar = DADOS.contas_pagar || {titulos:[]};
+  DADOS.moeda = DADOS.moeda || {por_unidade:[]};
+  DADOS.estoque = DADOS.estoque || {};
+  if(recarregar){
+    document.getElementById('selo-atualizado').textContent = DADOS.meta.atualizado_em;
+    desenhar();
+  }
+}
+
+/* ---------- 10. PARTIDA --------------------------------------------------- */
+(async function(){
+  const tema = Guarda.ler(CHAVE_TEMA);
+  if(tema) document.documentElement.setAttribute('data-theme', tema);
+
+  SB = ligarNuvem();
+
+  if(naNuvem()){
+    document.getElementById('sub-login').textContent = 'Painel gerencial · ROS Estratégia';
+    // esconde o "solicitar cadastro": na nuvem quem cria usuário é a ROS
+    const ir = document.getElementById('ir-cadastro');
+    if(ir) ir.closest('.dica').innerHTML =
+      '<span style="color:var(--muted)">Não tem acesso? Fale com a ROS Estratégia.</span>';
+
+    // link de convite ou de recuperação chega com o token na URL
+    const marca = location.hash + location.search;
+    if(/type=(invite|recovery|signup)/.test(marca)){
+      await new Promise(r => setTimeout(r, 400));   // deixa o supabase-js ler a URL
+      return definirPrimeiraSenha();
+    }
+    const { data } = await SB.auth.getSession();
+    if(data && data.session) { if(await abrirComDadosDaNuvem()) return; }
+    return;                                        // fica na tela de login
+  }
+
+  // ---- modo local (máquina do cliente, ou teste aqui) ----
+  DADOS = SEMENTE;
+  await carregarDados(false);
+  const s = Guarda.ler(CHAVE_SESSAO);
+  if(s){ const u = lerUsuarios().find(x => x.email === s && x.status === 'ativo'); if(u) return entrar(u); }
+})();
+</script>
+</body>
+</html>
