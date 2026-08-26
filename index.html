@@ -426,9 +426,6 @@ const NUVEM_CONFIG = {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const SEMENTE = { meta:{ cliente:'—', erp:'—', atualizado_em:'—', unidades:[], modulos_ativos:[] } };
-</script>
-<script>
 "use strict";
 /* =============================================================================
    ROS BI — painel
@@ -779,7 +776,7 @@ function blocoConfigRanking(todos, fora, chave){
   const cols = [{t:'No ranking',k:'c'},{t:'Vendedor',k:'n',forte:true},
                 {t:'Unidade',k:'u'},{t:'Código',k:'cd'},{t:'Venda',k:'v',r:true}];
   return bloco('Quem entra no ranking', cabecalho + tabela(cols, linhas),
-    'a exclusão vale para o ranking, o prêmio e o Excel — e fica salva para todos');
+    'quem sai deixa de aparecer na lista; a posição e o prêmio continuam sendo os do ERP, sobre a rede');
 }
 
 RENDER.vendedores = () => {
@@ -796,7 +793,12 @@ RENDER.vendedores = () => {
      todo mundo abaixo subir uma posicao. */
   const ranq = [...dentro].sort((a,b) => b.venda - a.venda);
   const totalDentro = ranq.reduce((a,v)=>a+(v.venda||0),0);
-  const premiados = ranq.slice(0,3).map(v => chave(v));
+  /* O premio NAO se calcula aqui. O 03_vendedores ja aplica 150/100/50 sobre a
+     posicao na REDE, e so quando houve crescimento. Se eu recalculasse "top 3
+     do que esta na tela", filtrar uma unidade daria o top 3 daquela loja — e o
+     premio e da rede. */
+  const periodoRanking = (dentro[0] && dentro[0].periodo_atual) || '';
+  const periodoAnterior = (dentro[0] && dentro[0].periodo_anterior) || '';
 
   const editando = !!DADOS._editandoRanking;
 
@@ -816,7 +818,7 @@ RENDER.vendedores = () => {
     ${kpi('Ticket médio do grupo', R(ranq.length?ranq.reduce((a,v)=>a+(v.ticket_medio||0),0)/ranq.length:0))}
   </div>
 
-  ${bloco('Ranking de vendedores', tabela([
+  ${bloco('Ranking de vendedores' + (periodoRanking ? ' — ' + periodoRanking : ''), tabela([
     /* Mesma ordem do painel original do Tondin: o cliente reconhece a tela
        pela ordem das colunas, nao so pelo conteudo. */
     {t:'#',k:'i',forte:true},{t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},
@@ -826,7 +828,10 @@ RENDER.vendedores = () => {
     /* estas nao existiam no original; ficam no fim para nao mexer na leitura */
     {t:'Ticket médio',k:'t',r:true},{t:'Itens/cupom',k:'ic',r:true},{t:'Atend.',k:'a',r:true}],
     ranq.map((r,i)=>({
-      i: i<3 ? `<span class="pill p-ok">${i+1}º</span>` : String(i+1),
+      /* posicao da REDE, vinda do SQL. O indice da tela mudaria ao filtrar. */
+      i: (r.posicao && r.posicao <= 3)
+         ? `<span class="pill p-ok">${r.posicao}º</span>`
+         : String(r.posicao || (i+1)),
       n:esc(r.vendedor), u:esc(r.unidade), v:R0(r.venda),
       va: r.venda_anterior ? R0(r.venda_anterior) : '—',
       cr: r.crescimento_pct ? P(r.crescimento_pct) : '—',
@@ -835,11 +840,13 @@ RENDER.vendedores = () => {
                ? '<span style="color:var(--ok);font-weight:700">▲</span>'
                : '<span style="color:var(--crit);font-weight:700">▼</span>'),
       m:P(r.margem_pct),
-      pr:premiados.includes(chave(r))?'<span class="pill p-ok">sim</span>':'—',
+      pr: r.premio ? `<span class="pill p-ok">${R0(r.premio)}</span>` : '—',
       t:R(r.ticket_medio), ic:r.itens_por_cupom?nf2.format(r.itens_por_cupom):'—',
       a:N(r.atendimentos),
       _clicavel:true, _attrs:`data-drill="${esc(r.vendedor)}"`})),
-    ), 'classificação recalculada sobre quem está no ranking — clique no vendedor para abrir por categoria')}
+    ), 'posição e prêmio vêm do ERP, sobre a rede inteira' +
+        (periodoAnterior ? ' · comparado com ' + periodoAnterior : '') +
+        ' — clique no vendedor para abrir por categoria')}
 
   ${excluidos.length ? bloco('Fora do ranking', tabela([
     {t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},{t:'Venda',k:'v',r:true}],
@@ -854,6 +861,9 @@ RENDER.rankings = () => {
   if(!dim) return aguardando('Rankings','Nenhuma dimensão declarada pelo conector deste cliente.');
   const linhas = noEscopo(rk.dados[dim] || []);
   const tot = linhas.reduce((a,r)=>a+(r.venda||0),0);
+  /* A curva vem do ERP quando existe (06_vendas_categoria devolve 'curva').
+     So calculo por acumulado nas dimensoes onde o ERP nao classifica. */
+  const temCurvaDoErp = linhas.some(r => r.curva);
   let acum = 0;
   return `
   <div class="filtros">
@@ -866,13 +876,14 @@ RENDER.rankings = () => {
     {t:'Part.',k:'p',r:true},{t:'Acum.',k:'ac',r:true},{t:'Curva',k:'cv'},{t:'Margem',k:'m',r:true}],
     linhas.map((r,i)=>{ const part = tot?r.venda/tot*100:0; acum += part;
       const cv = acum<=80?'A':(acum<=95?'B':'C');
+      const curva = temCurvaDoErp ? (r.curva || 'D') : cv;
       return {i:String(i+1), n:esc(r.nome), v:R0(r.venda), p:P(part), ac:P(acum),
-        cv:`<span class="pill ${cv==='A'?'p-ok':(cv==='B'?'p-warn':'p-neutro')}">${cv}</span>`,
+        cv:`<span class="pill ${curva==='A'?'p-ok':(curva==='B'?'p-warn':'p-neutro')}">${curva}</span>`,
         m:P(r.margem_pct),
         _clicavel: dim!=='produto',
         _attrs: dim!=='produto' ? `data-abre="${esc(dim)}" data-valor="${esc(r.nome)}"` : ''};})),
-    dim==='produto' ? 'curva ABC sobre a dimensão escolhida'
-      : 'curva ABC sobre a dimensão escolhida — clique na linha para abrir os produtos')}`;
+    (temCurvaDoErp ? 'curva vinda do ERP' : 'curva calculada por acumulado (o ERP não classifica esta dimensão)')
+      + (dim==='produto' ? '' : ' — clique na linha para abrir os produtos'))}`;
 };
 const rotuloDim = d => ({categoria:'Categoria', produto:'Produto', fornecedor:'Fornecedor',
   laboratorio:'Laboratório', grupo:'Grupo', principio:'Princípio ativo', cliente:'Cliente'}[d] || d);
@@ -900,6 +911,9 @@ RENDER.fluxo = () => {
     ${kpi('Menor saldo do período', R0(isFinite(menor)?menor:null),
         isFinite(menor)&&menor<0?'entra em caixa negativo':'', menor<0?'ruim':'bom')}
   </div>
+  ${(DADOS.fluxo && DADOS.fluxo.origem_entrada && /venda/.test(DADOS.fluxo.origem_entrada))
+    ? `<div class="aviso info" style="margin-bottom:16px">A coluna <b>A Receber</b> é estimada pela
+        venda projetada: este cliente não lança contas a receber no ERP.</div>` : ''}
   ${bloco('Fluxo de caixa — '+({diario:'diário',semanal:'semanal',mensal:'mensal'}[g]),
     tabela([{t:'Data',k:'d',forte:true},{t:'Saldo Inicial',k:'si',r:true},{t:'A Receber',k:'ar',r:true},
       {t:mostrarReal?'A Pagar Realizado':'A Pagar Projetado',k:'ap',r:true},
@@ -912,28 +926,49 @@ RENDER.fluxo = () => {
 };
 
 RENDER.cp = () => {
-  const t = (DADOS.contas_pagar && DADOS.contas_pagar.titulos) || [];
-  const filtro = (DADOS.contas_pagar && DADOS.contas_pagar._dia) || '';
+  const cp = DADOS.contas_pagar || {};
+  const t = cp.titulos || [];
+  if(!t.length) return aguardando('Contas a Pagar',
+    'A consulta 12_contas_pagar ainda não trouxe títulos. Rode a coleta completa.');
+  const filtro = cp._dia || '';
   const lista = daUnidade(t).filter(r => !filtro || String(r.data).slice(0,10) === filtro);
   const total = lista.reduce((a,r)=>a+(r.valor||0),0);
-  const pago = lista.reduce((a,r)=>a+(r.pago||0),0);
+  const pago  = lista.reduce((a,r)=>a+(r.pago||0),0);
+
+  /* Agenda dos próximos dias: é o que o dono olha para saber se o caixa aguenta. */
+  const hoje = new Date().toISOString().slice(0,10);
+  const porDia = {};
+  daUnidade(t).filter(r => r.data >= hoje).forEach(r => {
+    porDia[r.data] = (porDia[r.data]||0) + (r.valor - r.pago); });
+  const agenda = Object.entries(porDia).sort().slice(0,15);
+
   return `
   <div class="filtros">
     <label class="campo" style="margin:0"><span>Filtrar por dia</span>
       <input type="date" id="cp-dia" value="${esc(filtro)}"></label>
     <button class="btn sm" id="cp-limpar" style="margin-top:18px">Limpar</button>
+    <button class="btn sm" id="cp-xls" style="margin-top:18px">⭳ Baixar Excel</button>
   </div>
   <div class="cards">
     ${kpi('Total no filtro', R0(total), N(lista.length)+' títulos')}
     ${kpi('Já pago', R0(pago))}
     ${kpi('Em aberto', R0(total-pago), '', (total-pago)>0?'alerta':'bom')}
+    ${kpi('Vence nos próximos 7 dias', R0(agenda.slice(0,7).reduce((a,[,v])=>a+v,0)), '', 'alerta')}
   </div>
+  ${bloco('Agenda de vencimentos', tabela([{t:'Data',k:'d',forte:true},{t:'A pagar',k:'v',r:true},{t:'',k:'b'}],
+    (()=>{ const mx = Math.max(...agenda.map(([,v])=>v), 1);
+      return agenda.map(([dia,v])=>({d:dataBR(dia), v:R0(v),
+        b:`<div class="barra-mini" style="min-width:160px"><i style="width:${Math.round(v/mx*100)}%"></i></div>`}));})()),
+    'o que vence daqui para frente, dia a dia')}
   ${bloco('Títulos', tabela([{t:'Vencimento',k:'d',forte:true},{t:'Unidade',k:'u'},
-    {t:'Fornecedor',k:'f'},{t:'Plano de contas',k:'p'},{t:'Valor',k:'v',r:true},{t:'Situação',k:'s'}],
-    lista.slice(0,200).map(r=>({d:dataBR(r.data), u:esc(r.unidade), f:esc(r.fornecedor),
-      p:esc(r.plano), v:R0(r.valor),
-      s:(r.pago>=r.valor)?'<span class="pill p-ok">pago</span>':'<span class="pill p-warn">aberto</span>'}))),
-    lista.length>200 ? 'mostrando os 200 primeiros — refine o filtro' : '')}`;
+    {t:'Fornecedor',k:'f'},{t:'Plano de contas',k:'p'},{t:'Documento',k:'doc'},
+    {t:'Valor',k:'v',r:true},{t:'Pago',k:'pg',r:true},{t:'Situação',k:'s'}],
+    lista.slice(0,300).map(r=>({d:dataBR(r.data), u:esc(r.unidade), f:esc(r.fornecedor),
+      p:esc(r.plano), doc:esc(r.documento), v:R0(r.valor), pg:r.pago?R0(r.pago):'—',
+      s: r.situacao === 'PAGO'    ? '<span class="pill p-ok">pago</span>'
+       : r.situacao === 'PARCIAL' ? '<span class="pill p-warn">parcial</span>'
+       :                            '<span class="pill p-crit">aberto</span>'}))),
+    lista.length>300 ? 'mostrando os 300 primeiros — refine o filtro' : '')}`;
 };
 
 RENDER.moeda = () => {
@@ -991,6 +1026,23 @@ RENDER.dre = () => {
   if(!d.linhas) return aguardando('DRE','O coletor ainda não gerou o bloco de DRE.');
   const meses = d.meses || [];
   return `
+  ${(() => {
+      const dp = daUnidade(DADOS.dre_despesas);
+      if(!dp.length) return '';
+      const grupos = {};
+      dp.forEach(r => { grupos[r.grupo] = (grupos[r.grupo]||0) + (r.valor||0); });
+      const total = Object.values(grupos).reduce((a,b)=>a+b,0);
+      const soUm = Object.keys(grupos).length <= 1;
+      return (soUm ? `<div class="aviso info" style="margin-bottom:16px">
+        O cliente lança tudo num grupo só (<b>${esc(Object.keys(grupos)[0]||'')}</b>).
+        Isso é o contas a pagar de fornecedor, não a despesa operacional — que vive fora do ERP.
+        </div>` : '')
+      + bloco('Despesas lançadas no financeiro', tabela([
+          {t:'Grupo',k:'g',forte:true},{t:'Valor',k:'v',r:true},{t:'Part.',k:'p',r:true}],
+          Object.entries(grupos).sort((a,b)=>b[1]-a[1]).map(([g,v])=>({
+            g:esc(g), v:R0(v), p:P(total?v/total*100:0)}))),
+        'últimos 12 meses, regime de caixa');
+    })()}
   ${bloco('DRE gerencial — realizado × projetado',
     `<div class="rolagem"><table><thead><tr>
       <th>Conta</th>${meses.map(m=>`<th class="r">${esc(m)}</th>`).join('')}
@@ -1014,8 +1066,15 @@ RENDER.estoque = () => {
     ${kpi('Estoque a custo', R0(somar(cat,'estoque_valor')))}
     ${kpi('CMV 30 dias', R0(somar(cat,'cmv_30d')))}
     ${kpi('Compra do mês', R0(somar(cat,'compra_mes')))}
-    ${kpi('Pode entrar de boleto', R0(oc.espaco_boleto), 'CMV 30d − compra do mês',
-        oc.espaco_boleto<0?'ruim':'bom')}
+    ${(() => {
+      /* Com filtro ligado o card fala da unidade filtrada, nunca da rede. */
+      const ou = (e.orcamento_unidade||[]).find(r => r.unidade === unidadeAtiva) || oc;
+      return (ou.espaco_boleto === null || ou.espaco_boleto === undefined)
+        ? kpi('Pode entrar de boleto', '—', 'sem consulta de compras')
+        : kpi('Pode entrar de boleto', R0(ou.espaco_boleto),
+              'CMV 30d − compra do mês (' + R0(ou.compra_mes) + ')',
+              ou.espaco_boleto<0?'ruim':'bom');
+    })()}
     ${kpi('Ruptura (venda perdida)', R0(somar(rup,'venda')), N(somar(rup,'itens'))+' itens', 'ruim')}
   </div>
   ${bloco('Orçamento de compra do mês', `
@@ -1043,11 +1102,33 @@ RENDER.estoque = () => {
         da:N(r.dias_a), db:N(r.dias_b), dc:N(r.dias_c), dd:N(r.dias_d), r:R0(ru.venda),
         _clicavel:true, _attrs:`data-abre="categoria" data-valor="${esc(r.categoria)}"`};})),
     'clique na categoria para abrir os produtos, com filtro por laboratório, princípio ativo e grupo')}
-  ${bloco('Baixo giro — candidatos a não recompra', tabela([
-    {t:'Produto',k:'p',forte:true},{t:'Categoria',k:'c'},{t:'Estoque',k:'e',r:true},
-    {t:'Cobertura',k:'d',r:true},{t:'Última venda',k:'u'}],
-    (e.baixo_giro||[]).slice(0,50).map(r=>({p:esc(r.produto), c:esc(r.categoria),
-      e:R0(r.estoque_valor), d:N(r.dias_cobertura)+' d', u:dataBR(r.ultima_venda)}))))}`;
+  ${(() => {
+      const rd = daUnidade(e.ruptura_detalhe);
+      if(!rd.length) return '';
+      return bloco('Ruptura — o que está sem estoque e vendendo', tabela([
+        {t:'Produto',k:'p',forte:true},{t:'Categoria',k:'c'},{t:'Curva',k:'cv'},
+        {t:'Saldo',k:'sd',r:true},{t:'Demanda/mês',k:'dm',r:true},
+        {t:'Vendeu 30d',k:'v30',r:true},{t:'Perda a custo',k:'pc',r:true},
+        {t:'Perda a venda',k:'pv',r:true},{t:'Dias parado',k:'ds',r:true}],
+        rd.slice(0,200).map(r=>({p:esc(r.produto), c:esc(r.categoria),
+          cv:`<span class="pill ${r.curva==='A'?'p-crit':(r.curva==='B'?'p-warn':'p-neutro')}">${esc(r.curva)}</span>`,
+          sd:N(r.qtd_estoque), dm:N(r.demanda_mes), v30:N(r.qtd_vendida_30d),
+          pc:R0(r.custo), pv:R0(r.venda), ds:r.dias_sem_estoque?N(r.dias_sem_estoque):'—'}))),
+        'curva A em ruptura é a mais cara: é o item que mais gira parado na prateleira');
+    })()}
+  ${(() => {
+      const bg = daUnidade(e.baixo_giro);
+      if(!bg.length) return '';
+      const parado = bg.reduce((a,r)=>a+(r.estoque_valor||0),0);
+      return bloco('Baixo giro — capital parado: ' + R0(parado), tabela([
+        {t:'Produto',k:'p',forte:true},{t:'Categoria',k:'c'},{t:'Curva',k:'cv'},
+        {t:'Saldo',k:'sd',r:true},{t:'Valor parado',k:'e',r:true},
+        {t:'Última venda',k:'u'},{t:'Dias sem vender',k:'ds',r:true},{t:'Cobertura',k:'d',r:true}],
+        bg.slice(0,200).map(r=>({p:esc(r.produto), c:esc(r.categoria), cv:esc(r.curva),
+          sd:N(r.qtd_estoque), e:R0(r.estoque_valor), u:esc(r.ultima_venda),
+          ds:N(r.dias_sem_venda), d:r.dias_cobertura?N(r.dias_cobertura)+' d':'—'}))),
+        'ordenado pelo que mais prende dinheiro — candidatos a devolução, remanejamento ou promoção');
+    })()}`;
 };
 
 RENDER.elast = () => {
@@ -1392,6 +1473,19 @@ document.addEventListener('click', ev => {
   if(b.dataset.dim){ DADOS.rankings._sel = b.dataset.dim; desenhar(); return; }
   if(b.dataset.gran){ DADOS.fluxo._gran = b.dataset.gran; desenhar(); return; }
   if(b.dataset.real !== undefined){ DADOS.fluxo._real = b.dataset.real === '1'; desenhar(); return; }
+  if(b.id === 'cp-xls'){
+    const cp = DADOS.contas_pagar || {};
+    const filtro = cp._dia || '';
+    const lista = daUnidade(cp.titulos||[]).filter(r => !filtro || String(r.data).slice(0,10) === filtro);
+    baixarXLS('Contas-a-pagar', [
+      {t:'Vencimento',k:'data'},{t:'Unidade',k:'unidade'},{t:'Fornecedor',k:'fornecedor'},
+      {t:'Plano de contas',k:'plano'},{t:'Documento',k:'documento'},
+      {t:'Valor',k:'valor'},{t:'Pago',k:'pago'},{t:'Situação',k:'situacao'}], lista, {
+      titulo:'Contas a pagar',
+      subtitulo:'Títulos dos últimos 90 dias e dos próximos 120.',
+      filtros:[{rotulo:'Dia', valor:filtro || null}]});
+    return;
+  }
   if(b.id === 'cp-limpar'){ DADOS.contas_pagar._dia = ''; desenhar(); return; }
   if(b.id === 'cv-baixar'){
     const cv = DADOS.convenios || {};
