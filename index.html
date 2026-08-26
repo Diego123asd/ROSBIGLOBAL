@@ -426,8 +426,6 @@ const NUVEM_CONFIG = {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-/* Versao de NUVEM: sem dados de demonstracao. O dado vem do servidor, ja
-   filtrado pela permissao. Este esqueleto so evita erro no modo local. */
 const SEMENTE = { meta:{ cliente:'—', erp:'—', atualizado_em:'—', unidades:[], modulos_ativos:[] } };
 </script>
 <script>
@@ -819,17 +817,27 @@ RENDER.vendedores = () => {
   </div>
 
   ${bloco('Ranking de vendedores', tabela([
+    /* Mesma ordem do painel original do Tondin: o cliente reconhece a tela
+       pela ordem das colunas, nao so pelo conteudo. */
     {t:'#',k:'i',forte:true},{t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},
-    {t:'Venda',k:'v',r:true},{t:'Part.',k:'p',r:true},{t:'Margem',k:'m',r:true},
-    {t:'Ticket médio',k:'t',r:true},{t:'Itens/cupom',k:'ic',r:true},{t:'Atend.',k:'a',r:true},
-    {t:'Cresc.',k:'cr',r:true},{t:'Prêmio',k:'pr',r:true}],
+    {t:'Venda Atual',k:'v',r:true},{t:'Venda Anterior',k:'va',r:true},
+    {t:'% Cresc.',k:'cr',r:true},{t:'▲▼',k:'seta'},{t:'Margem',k:'m',r:true},
+    {t:'Prêmio',k:'pr',r:true},
+    /* estas nao existiam no original; ficam no fim para nao mexer na leitura */
+    {t:'Ticket médio',k:'t',r:true},{t:'Itens/cupom',k:'ic',r:true},{t:'Atend.',k:'a',r:true}],
     ranq.map((r,i)=>({
       i: i<3 ? `<span class="pill p-ok">${i+1}º</span>` : String(i+1),
       n:esc(r.vendedor), u:esc(r.unidade), v:R0(r.venda),
-      p:P(totalDentro?r.venda/totalDentro*100:0), m:P(r.margem_pct), t:R(r.ticket_medio),
-      ic:r.itens_por_cupom?nf2.format(r.itens_por_cupom):'—', a:N(r.atendimentos),
-      cr:r.crescimento_pct?P(r.crescimento_pct):'—',
+      va: r.venda_anterior ? R0(r.venda_anterior) : '—',
+      cr: r.crescimento_pct ? P(r.crescimento_pct) : '—',
+      seta: !r.crescimento_pct ? ''
+            : (r.crescimento_pct > 0
+               ? '<span style="color:var(--ok);font-weight:700">▲</span>'
+               : '<span style="color:var(--crit);font-weight:700">▼</span>'),
+      m:P(r.margem_pct),
       pr:premiados.includes(chave(r))?'<span class="pill p-ok">sim</span>':'—',
+      t:R(r.ticket_medio), ic:r.itens_por_cupom?nf2.format(r.itens_por_cupom):'—',
+      a:N(r.atendimentos),
       _clicavel:true, _attrs:`data-drill="${esc(r.vendedor)}"`})),
     ), 'classificação recalculada sobre quem está no ranking — clique no vendedor para abrir por categoria')}
 
@@ -1158,45 +1166,71 @@ RENDER.convenios = () => {
 };
 
 /* ---- COMISSÕES -----------------------------------------------------------
-   Regra da Fernanda Wagner (Financeiro Itaner), 09/07/2026:
-     A faixa é definida pelo MIX DA LOJA (Genérico+Similar ÷ venda da loja):
-       até 37,99% → 3% | 38,00 a 41,99% → 4% | 42% ou mais → 6% SE bater a meta
-     A comissão é aplicada sobre a VENDA INDIVIDUAL de cada colaborador:
-       Fitoterápicos, Oficinais e Ortopédicos → sempre 3%
-       Genérico e Similar → usa a faixa da loja
-     Prêmio de R$ 150 por vendedor quando a loja bate 100% da meta.
-   A meta da loja é MANUAL — não existe no ERP. Digitada aqui e guardada no
-   servidor (nunca no navegador: senão o fechamento dependeria de qual PC abriu). */
-function faixaComissao(mixPct, bateuMeta){
-  if(mixPct >= 42) return bateuMeta ? 6 : 4;   // ver ressalva abaixo
-  if(mixPct >= 38) return 4;
-  return 3;
-}
-RENDER.comissoes = () => {
-  const cm = DADOS.comissoes;
-  if(!cm || !cm.por_unidade || !cm.por_unidade.length)
-    return aguardando('Comissões','Falta o SQL de comissão do Trier. O módulo está pronto com a regra do cliente — assim que o coletor emitir venda por vendedor e por tipo de produto, ele acende.');
-  const mes = cm._mes || (cm.meses && cm.meses[0]);
-  const metas = (cm.metas && cm.metas[mes]) || {};
-  const unis = daUnidade(cm.por_unidade.filter(r => r.mes === mes));
-  const vends = daUnidade((cm.por_vendedor||[]).filter(r => r.mes === mes));
+   Regra recuperada do painel original do cliente (nao da mensagem resumida).
+   As constantes sao do Excel de calculo que o financeiro usava:
 
+     COM_RATE_DEPTO      3%    Fitoterapicos, Oficinais, Ortopedicos
+     COM_PREMIO_META     R$150 por vendedor, quando a LOJA bate a meta
+     COM_VALOR_VITAMINA  R$5   por UNIDADE vendida (depto 19) — nao e percentual
+
+   A faixa vem do mix da loja, e a meta so decide se os 42% valem 6% ou 4%.
+   Sem meta cadastrada nao ha premio nem faixa de 6% (meta em branco vira 0).
+-------------------------------------------------------------------------- */
+const COM_RATE_DEPTO = 0.03, COM_PREMIO_META = 150, COM_VALOR_VITAMINA = 5;
+
+/* Devolve a faixa como FRACAO (0.03 / 0.04 / 0.06), igual ao original. */
+function comFaixa(gsLoja, mix, pctMeta){
+  if(!gsLoja) return 0;
+  if(mix <= 0.3799) return 0.03;
+  if(mix >= 0.38 && mix <= 0.4199) return 0.04;
+  if(mix > 0.4199 && pctMeta >= 1) return 0.06;
+  return 0.04;                    // mix >= 42% mas a loja NAO bateu a meta
+}
+/* compatibilidade: em algum ponto o painel chama com o mix em porcentagem */
+function faixaComissao(mixPct, bateuMeta){
+  return comFaixa(1, (mixPct||0)/100, bateuMeta ? 1 : 0) * 100;
+}
+
+function comApurar(mes){
+  const cm = DADOS.comissoes || {};
+  const metas = (CFG_PAINEL.metas && CFG_PAINEL.metas[mes]) || (cm.metas && cm.metas[mes]) || {};
+  const unis = daUnidade((cm.por_unidade || []).filter(r => r.mes === mes));
   const porUni = {};
   unis.forEach(u => {
     const meta = +metas[u.unidade] || 0;
-    const bateu = meta > 0 && u.venda_total >= meta;
-    porUni[u.unidade] = {meta, bateu, mix:u.mix_gs_pct, faixa:faixaComissao(u.mix_gs_pct, bateu)};
+    const pct  = meta > 0 ? u.venda_total / meta : 0;
+    const mix  = u.venda_total > 0 ? u.venda_gs / u.venda_total : 0;
+    porUni[u.unidade] = { unidade:u.unidade, meta, pct, mix,
+      premio_meta: pct >= 1 ? COM_PREMIO_META : 0,
+      faixa: comFaixa(u.venda_gs, mix, pct),
+      venda_total: u.venda_total, venda_gs: u.venda_gs };
   });
 
-  let totCom = 0, totPre = 0;
-  const linhas = vends.map(v => {
-    const u = porUni[v.unidade] || {faixa:3, bateu:false};
-    const cGS = (v.venda_gs||0) * u.faixa/100;
-    const cFix = (v.venda_fixa3||0) * 0.03;
-    const premio = u.bateu ? 150 : 0;
-    totCom += cGS + cFix; totPre += premio;
-    return {v, u, cGS, cFix, premio, total:cGS+cFix+premio};
-  }).sort((a,b)=>b.total-a.total);
+  const vend = daUnidade((cm.por_vendedor || []).filter(r => r.mes === mes)).map(v => {
+    const u = porUni[v.unidade] || {faixa:0.03, premio_meta:0, meta:0, pct:0, mix:0};
+    const c_geral = u.premio_meta;
+    const c_gs    = (v.venda_gs || 0) * u.faixa;
+    const c_fito  = (v.fitoterapicos || 0) * COM_RATE_DEPTO;
+    const c_ofi   = (v.oficinais || 0)     * COM_RATE_DEPTO;
+    const c_orto  = (v.ortopedicos || 0)   * COM_RATE_DEPTO;
+    const c_vit   = (v.qtd_vitaminas || 0) * COM_VALOR_VITAMINA;
+    const total   = c_geral + c_gs + c_fito + c_ofi + c_orto + c_vit;
+    return Object.assign({}, v, {
+      faixa:u.faixa, meta:u.meta, pct:u.pct, mix:u.mix,
+      c_geral, c_gs, c_fito, c_ofi, c_orto, c_vit,
+      total, total_sem_meta: total - c_geral });
+  }).sort((a,b) => b.total - a.total);
+
+  return { porUni, unis, vend };
+}
+
+RENDER.comissoes = () => {
+  const cm = DADOS.comissoes;
+  if(!cm || !cm.por_unidade || !cm.por_unidade.length)
+    return aguardando('Comissões','Falta a consulta de comissão do Trier. A regra do cliente já está aplicada — assim que o coletor emitir a base, a tela acende.');
+  const mes = cm._mes || (cm.meses && cm.meses[0]);
+  const {porUni, unis, vend} = comApurar(mes);
+  const soma = c => vend.reduce((a,v) => a + (v[c]||0), 0);
 
   return `
   <div class="filtros">
@@ -1204,67 +1238,73 @@ RENDER.comissoes = () => {
     <div class="seg" id="seg-mes">${(cm.meses||[]).map(m=>
       `<button data-mes="${esc(m)}" class="${m===mes?'on':''}">${esc(m)}</button>`).join('')}</div>
     <button class="btn sm" id="cm-xls">⭳ Baixar apuração</button>
+    ${cfgSomenteLeitura ? '<span class="pill p-warn">seu perfil só visualiza</span>' : ''}
   </div>
   <div class="cards">
-    ${kpi('Comissão do mês', R0(totCom))}
-    ${kpi('Prêmios', R0(totPre), N(linhas.filter(l=>l.premio).length)+' vendedores')}
-    ${kpi('Custo total', R0(totCom+totPre))}
-    ${kpi('Lojas que bateram a meta', N(Object.values(porUni).filter(u=>u.bateu).length)+' de '+N(unis.length))}
+    ${kpi('Total a pagar', R0(soma('total')))}
+    ${kpi('Sem depender da meta', R0(soma('total_sem_meta')), 'o que sai mesmo se a loja não bater')}
+    ${kpi('Prêmios de meta', R0(soma('c_geral')), N(vend.filter(v=>v.c_geral).length)+' vendedores')}
+    ${kpi('Lojas que bateram', N(Object.values(porUni).filter(u=>u.pct>=1).length)+' de '+N(unis.length))}
   </div>
+
   ${bloco('Meta e faixa por loja', `
     <div class="form-linha">
-      <span class="selo" style="align-self:center">Digite a meta de cada loja — ela não existe no ERP</span>
-      <button class="btn sm" id="cm-salvar">Salvar metas</button>
+      <span class="selo" style="align-self:center">A meta não existe no ERP — é digitada aqui e vale para todos</span>
+      <button class="btn sm primario" id="cm-salvar" style="width:auto" ${cfgSomenteLeitura?'disabled':''}>Salvar metas</button>
     </div>
-    ${tabela([{t:'Unidade',k:'u',forte:true},{t:'Meta do mês',k:'me'},{t:'Venda',k:'v',r:true},
-      {t:'Atingimento',k:'a',r:true},{t:'Mix G+S',k:'m',r:true},{t:'Faixa',k:'f',r:true},{t:'Situação',k:'s'}],
+    ${tabela([{t:'Unidade',k:'u',forte:true},{t:'Valor da Meta',k:'me'},
+      {t:'Venda da Unidade',k:'v',r:true},{t:'% Atingido',k:'pa',r:true},
+      {t:'Prêmio por Vendedor',k:'pv',r:true},{t:'Mix G+S',k:'mx',r:true},{t:'Faixa G+S',k:'fx',r:true}],
       unis.map(u=>{const p = porUni[u.unidade];
         return {u:esc(u.unidade),
-          me:`<input type="number" step="1000" data-meta="${esc(u.unidade)}" value="${p.meta||''}" style="width:130px">`,
-          v:R0(u.venda_total), a:p.meta?P(u.venda_total/p.meta*100):'—',
-          m:P(u.mix_gs_pct), f:`<span class="pill ${p.faixa===6?'p-ok':(p.faixa===4?'p-warn':'p-neutro')}">${p.faixa}%</span>`,
-          s:p.bateu?'<span class="pill p-ok">bateu</span>':(p.meta?'<span class="pill p-crit">não bateu</span>':'<span class="pill p-neutro">sem meta</span>')};}))}`,
-    'a faixa vem do mix da loja; a meta só decide se os 42% valem 6% ou não')}
+          me:`<input type="number" step="1000" data-meta="${esc(u.unidade)}" value="${p.meta||''}" style="width:130px" ${cfgSomenteLeitura?'disabled':''}>`,
+          v:R0(p.venda_total), pa:p.meta?P(p.pct*100):'—',
+          pv:p.premio_meta?R0(p.premio_meta):'—', mx:P(p.mix*100),
+          fx:`<span class="pill ${p.faixa>=0.06?'p-ok':(p.faixa>=0.04?'p-warn':'p-neutro')}">${nf0.format(p.faixa*100)}%</span>`};}))}`,
+    'a faixa vem do mix da loja; a meta só decide se os 42% valem 6% ou 4%')}
+
+  ${bloco('Apuração por vendedor', tabela([
+    {t:'Vendedor',k:'n',forte:true},{t:'G+S',k:'gs',r:true},{t:'Fito',k:'fi',r:true},
+    {t:'Oficinais',k:'of',r:true},{t:'Ortop.',k:'or',r:true},{t:'Vitam. (un)',k:'vu',r:true},
+    {t:'Venda Total',k:'vt',r:true},{t:'Com. Meta',k:'cg',r:true},{t:'Com. G+S',k:'cgs',r:true},
+    {t:'Com. Fito',k:'cf',r:true},{t:'Com. Ofic.',k:'co',r:true},{t:'Com. Ortop.',k:'cor',r:true},
+    {t:'Com. Vitam.',k:'cv',r:true},{t:'TOTAL',k:'tt',r:true},{t:'Sem Meta',k:'sm',r:true}],
+    vend.map(v=>({n:esc(v.vendedor), gs:R0(v.venda_gs), fi:R0(v.fitoterapicos),
+      of:R0(v.oficinais), or:R0(v.ortopedicos), vu:N(v.qtd_vitaminas),
+      vt:R0(v.venda_total), cg:v.c_geral?R0(v.c_geral):'—', cgs:R(v.c_gs),
+      cf:R(v.c_fito), co:R(v.c_ofi), cor:R(v.c_orto), cv:v.c_vit?R(v.c_vit):'—',
+      tt:R(v.total), sm:R(v.total_sem_meta)}))),
+    'mesma ordem de colunas do painel anterior · Vitam. paga R$ '+nf2.format(COM_VALOR_VITAMINA)+' por unidade')}
+
   ${bloco('O que cada um já ganhou — e o que está em jogo', tabela([
     {t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},{t:'Ganho hoje',k:'g',r:true},
     {t:'Se a loja bater a meta',k:'s',r:true},{t:'Diferença',k:'d',r:true},
     {t:'Falta a loja vender',k:'fv',r:true},{t:'Falta em G+S p/ subir de faixa',k:'fm',r:true}],
-    linhas.map(l=>{
-      const u = porUni[l.v.unidade];
-      const uni = unis.find(x=>x.unidade===l.v.unidade) || {venda_total:0, venda_gs:0};
-      /* Simulação "e se": cenário em que a loja bate a meta. A faixa sobe para o
-         que o mix atual permitir e entra o prêmio de R$ 150. */
-      const faixaSe = faixaComissao(u.mix, true);
-      const seBate = (l.v.venda_gs||0)*faixaSe/100 + (l.v.venda_fixa3||0)*0.03 + 150;
-      const faltaVenda = Math.max(0, (u.meta||0) - uni.venda_total);
-      /* Quanto de G+S ainda falta para o mix da loja cruzar a próxima faixa */
-      const alvoMix = u.mix < 38 ? 38 : (u.mix < 42 ? 42 : null);
-      const faltaGS = alvoMix ? Math.max(0, uni.venda_total*alvoMix/100 - uni.venda_gs) : null;
-      return {n:esc(l.v.vendedor), u:esc(l.v.unidade), g:R0(l.total),
-        s: u.bateu ? '<span class="pill p-ok">já bateu</span>' : R0(seBate),
-        d: u.bateu ? '—' : R0(seBate - l.total),
-        fv: faltaVenda ? R0(faltaVenda) : '<span class="pill p-ok">meta batida</span>',
+    vend.map(v=>{
+      const u = porUni[v.unidade] || {};
+      const bateu = (u.pct||0) >= 1;
+      const faixaSe = comFaixa(u.venda_gs||1, u.mix||0, 1);
+      const seBate = (v.venda_gs||0)*faixaSe + v.c_fito + v.c_ofi + v.c_orto + v.c_vit + COM_PREMIO_META;
+      const faltaVenda = Math.max(0, (u.meta||0) - (u.venda_total||0));
+      const mixPct = (u.mix||0)*100;
+      const alvo = mixPct < 38 ? 38 : (mixPct <= 41.99 ? 42 : null);
+      const faltaGS = alvo ? Math.max(0, (u.venda_total||0)*alvo/100 - (u.venda_gs||0)) : null;
+      return {n:esc(v.vendedor), u:esc(v.unidade), g:R0(v.total),
+        s: bateu ? '<span class="pill p-ok">já bateu</span>' : R0(seBate),
+        d: bateu ? '—' : R0(seBate - v.total),
+        fv: faltaVenda ? R0(faltaVenda) : (u.meta ? '<span class="pill p-ok">meta batida</span>' : '<span class="pill p-neutro">sem meta</span>'),
         fm: faltaGS === null ? '<span class="pill p-ok">na faixa máxima</span>'
-            : R0(faltaGS) + ` <span class="pill p-neutro">→ ${alvoMix}%</span>`};
-    })),
-    'a faixa é da loja, então o ganho de cada um depende do time — é isso que a tela mostra')}
-  ${bloco('Apuração por vendedor', tabela([
-    {t:'Vendedor',k:'n',forte:true},{t:'Unidade',k:'u'},{t:'Venda',k:'v',r:true},
-    {t:'G+S',k:'g',r:true},{t:'Faixa',k:'f',r:true},{t:'Com. G+S',k:'cg',r:true},
-    {t:'Fito/Ofic/Orto',k:'x',r:true},{t:'Com. 3%',k:'cx',r:true},
-    {t:'Prêmio',k:'p',r:true},{t:'Total',k:'t',r:true}],
-    linhas.map(l=>({n:esc(l.v.vendedor), u:esc(l.v.unidade), v:R0(l.v.venda_total),
-      g:R0(l.v.venda_gs), f:l.u.faixa+'%', cg:R0(l.cGS), x:R0(l.v.venda_fixa3),
-      cx:R0(l.cFix), p:l.premio?R0(l.premio):'—', t:R0(l.total)}))))}
+            : R0(faltaGS) + ` <span class="pill p-neutro">→ ${alvo}%</span>`};})),
+    'a faixa é da loja, então o ganho de cada um depende do time')}
+
   <div class="bloco"><h3>A regra aplicada</h3><div style="padding:14px 16px;color:var(--ink-2)">
     <p style="margin:0 0 8px">Faixa pelo <b>mix da loja</b> (Genérico + Similar ÷ venda da loja):
-    até 37,99% → <b>3%</b> · 38,00 a 41,99% → <b>4%</b> · 42% ou mais → <b>6%</b>, se a loja bater a meta.</p>
-    <p style="margin:0 0 8px">Aplicada sobre a <b>venda individual</b> de cada colaborador.
-    Fitoterápicos, Oficinais e Ortopédicos pagam <b>sempre 3%</b>, qualquer que seja o mix.
-    Prêmio de <b>R$ 150</b> por vendedor quando a loja bate 100% da meta.</p>
-    <div class="aviso info" style="margin:12px 0 0">A confirmar com o financeiro: quando o mix
-    fica em 42% ou mais mas a loja <b>não</b> bate a meta, a faixa cai para 4% (o que este painel
-    está aplicando) ou para 3%? A regra recebida não diz, e isso muda o pagamento.</div>
+    até 37,99% → <b>3%</b> · 38 a 41,99% → <b>4%</b> · acima de 41,99% → <b>6%</b> se a loja bater a meta,
+    <b>4%</b> se não bater.</p>
+    <p style="margin:0 0 8px">Fitoterápicos, Oficinais e Ortopédicos: <b>3%</b> sempre.
+    Vitaminas comissionadas: <b>R$ ${nf2.format(COM_VALOR_VITAMINA)} por unidade</b> vendida — não é percentual.
+    Prêmio de <b>R$ ${nf0.format(COM_PREMIO_META)}</b> por vendedor quando a loja bate 100% da meta.</p>
+    <p style="margin:0">Meta em branco vira zero: <b>sem meta não há prêmio nem faixa de 6%</b>.</p>
   </div></div>`;
 };
 
@@ -1365,39 +1405,32 @@ document.addEventListener('click', ev => {
   if(b.id === 'cm-xls'){
     const cm = DADOS.comissoes || {};
     const mes = cm._mes || (cm.meses||[])[0];
-    const metas = (CFG_PAINEL.metas && CFG_PAINEL.metas[mes]) || (cm.metas && cm.metas[mes]) || {};
-    const unis = daUnidade((cm.por_unidade||[]).filter(r => r.mes === mes));
-    const porUni = {};
-    unis.forEach(u => {
-      const meta = +metas[u.unidade] || 0;
-      const bateu = meta > 0 && u.venda_total >= meta;
-      porUni[u.unidade] = {meta, bateu, faixa: faixaComissao(u.mix_gs_pct, bateu), mix:u.mix_gs_pct};
-    });
-    const linhas = daUnidade((cm.por_vendedor||[]).filter(r => r.mes === mes)).map(v => {
-      const u = porUni[v.unidade] || {faixa:3, bateu:false, meta:0, mix:0};
-      const cGS = (v.venda_gs||0) * u.faixa/100;
-      const cFix = (v.venda_fixa3||0) * 0.03;
-      const premio = u.bateu ? 150 : 0;
-      return {vendedor:v.vendedor, unidade:v.unidade, meta_loja:u.meta,
-        mix_loja:u.mix, bateu: u.bateu ? 'Sim' : 'Não', faixa:u.faixa,
-        venda_total:v.venda_total, venda_gs:v.venda_gs, comissao_gs:+cGS.toFixed(2),
-        venda_fixa3:v.venda_fixa3, comissao_fixa3:+cFix.toFixed(2),
-        premio, total:+(cGS+cFix+premio).toFixed(2)};
-    }).sort((a,b)=>b.total-a.total);
+    const {porUni, unis, vend} = comApurar(mes);
+    const linhas = vend.map(v => ({
+      vendedor:v.vendedor, unidade:v.unidade,
+      gs:v.venda_gs, fito:v.fitoterapicos, ofi:v.oficinais, orto:v.ortopedicos,
+      vit_un:v.qtd_vitaminas, venda_total:v.venda_total,
+      com_meta:v.c_geral, com_gs:+v.c_gs.toFixed(2), com_fito:+v.c_fito.toFixed(2),
+      com_ofi:+v.c_ofi.toFixed(2), com_orto:+v.c_orto.toFixed(2), com_vit:+v.c_vit.toFixed(2),
+      total:+v.total.toFixed(2), sem_meta:+v.total_sem_meta.toFixed(2),
+      faixa_loja:+(v.faixa*100).toFixed(2), meta_loja:v.meta
+    }));
     baixarXLS('Comissoes-' + mes, [
       {t:'Vendedor',k:'vendedor'},{t:'Unidade',k:'unidade'},
-      {t:'Meta da loja',k:'meta_loja'},{t:'Mix G+S da loja %',k:'mix_loja'},
-      {t:'Bateu a meta',k:'bateu'},{t:'Faixa %',k:'faixa'},
-      {t:'Venda total',k:'venda_total'},{t:'Venda G+S',k:'venda_gs'},
-      {t:'Comissão G+S',k:'comissao_gs'},
-      {t:'Fito/Ofic/Orto',k:'venda_fixa3'},{t:'Comissão 3%',k:'comissao_fixa3'},
-      {t:'Prêmio',k:'premio'},{t:'Total a pagar',k:'total'}], linhas, {
+      {t:'G+S',k:'gs'},{t:'Fito',k:'fito'},{t:'Oficinais',k:'ofi'},{t:'Ortop.',k:'orto'},
+      {t:'Vitam. (un)',k:'vit_un'},{t:'Venda Total',k:'venda_total'},
+      {t:'Com. Meta',k:'com_meta'},{t:'Com. G+S',k:'com_gs'},{t:'Com. Fito',k:'com_fito'},
+      {t:'Com. Ofic.',k:'com_ofi'},{t:'Com. Ortop.',k:'com_orto'},{t:'Com. Vitam.',k:'com_vit'},
+      {t:'TOTAL',k:'total'},{t:'Sem Meta',k:'sem_meta'},
+      {t:'Faixa da loja %',k:'faixa_loja'},{t:'Meta da loja',k:'meta_loja'}], linhas, {
       titulo:'Apuração de comissões — ' + mes,
-      subtitulo:'Faixa pelo mix da loja: até 37,99% = 3% · 38 a 41,99% = 4% · 42%+ = 6% se bater a meta. '
-              + 'Fitoterápicos, oficinais e ortopédicos pagam sempre 3%.',
+      subtitulo:'Faixa pelo mix da loja: até 37,99% = 3% · 38 a 41,99% = 4% · acima de 41,99% = 6% se bater a meta, 4% se não. '
+              + 'Fito, Oficinais e Ortopédicos = 3%. Vitaminas = R$ ' + nf2.format(COM_VALOR_VITAMINA) + ' por unidade.',
       filtros:[{rotulo:'Competência', valor:mes},
                {rotulo:'Lojas que bateram a meta',
-                valor: Object.values(porUni).filter(u=>u.bateu).length + ' de ' + unis.length}]
+                valor: Object.values(porUni).filter(u=>u.pct>=1).length + ' de ' + unis.length},
+               {rotulo:'Total a pagar',
+                valor: 'R$ ' + nf2.format(vend.reduce((a,v)=>a+v.total,0))}]
     });
     return;
   }
@@ -1451,15 +1484,20 @@ document.addEventListener('click', ev => {
   if(b.dataset.convper){ DADOS.convenios._periodo = b.dataset.convper; desenhar(); return; }
   if(b.dataset.mes){ DADOS.comissoes._mes = b.dataset.mes; desenhar(); return; }
   if(b.id === 'cm-salvar'){
-    /* As metas definem quanto cada vendedor recebe. Ficam no bloco de dados e
-       serão gravadas pelo Portal — nunca só no navegador, senão o fechamento
-       do mês passaria a depender de qual PC abriu o painel. */
-    const mes = DADOS.comissoes._mes || DADOS.comissoes.meses[0];
-    DADOS.comissoes.metas = DADOS.comissoes.metas || {};
-    DADOS.comissoes.metas[mes] = DADOS.comissoes.metas[mes] || {};
+    const cm = DADOS.comissoes || {};
+    const mes = cm._mes || (cm.meses||[])[0];
+    const metas = Object.assign({}, CFG_PAINEL.metas || {});
+    metas[mes] = metas[mes] || {};
     document.querySelectorAll('[data-meta]').forEach(i => {
-      DADOS.comissoes.metas[mes][i.dataset.meta] = +i.value || 0; });
-    desenhar();
+      metas[mes][i.dataset.meta] = +i.value || 0; });
+    b.disabled = true; b.textContent = 'Salvando…';
+    /* A meta define quanto cada vendedor recebe. Vai para o servidor, nunca
+       so para o navegador: senao o fechamento do mes dependeria de qual
+       computador abriu o painel. */
+    gravarConfig('metas', metas).then(r => {
+      recado(r.msg, r.ok ? 'ok' : 'erro');
+      desenhar();
+    });
     return;
   }
   if(b.id === 'ant-calc'){
@@ -1531,12 +1569,23 @@ document.addEventListener('change', ev => {
 document.addEventListener('click', ev => {
   const tr = ev.target.closest('tr[data-drill]'); if(!tr) return;
   const nome = tr.dataset.drill;
-  const v = (DADOS.vendedores||[]).find(x => x.vendedor === nome);
+  /* casa por nome E unidade: dois vendedores homonimos em lojas diferentes
+     abririam o mesmo drill se fosse so pelo nome */
+  const linhaUni = tr.querySelectorAll('td')[2];
+  const uni = linhaUni ? linhaUni.textContent.trim() : null;
+  const v = (DADOS.vendedores||[]).find(x => x.vendedor === nome && (!uni || x.unidade === uni))
+         || (DADOS.vendedores||[]).find(x => x.vendedor === nome);
   const alvo = document.getElementById('drill-vendedor'); if(!alvo || !v) return;
-  alvo.innerHTML = bloco(`${nome} — por categoria`, tabela([
-    {t:'Categoria',k:'c',forte:true},{t:'Venda',k:'v',r:true},{t:'Part.',k:'p',r:true},{t:'Margem',k:'m',r:true}],
-    (v.categorias||[]).map(c=>({c:esc(c.categoria), v:R0(c.venda),
-      p:P(v.venda?c.venda/v.venda*100:0), m:P(c.margem_pct)}))), 'drill-down do ranking');
+  const cats = v.categorias || [];
+  alvo.innerHTML = cats.length
+    ? bloco(`${nome} — por categoria`, tabela([
+        {t:'Categoria',k:'c',forte:true},{t:'Venda',k:'v',r:true},{t:'Part.',k:'p',r:true},
+        {t:'Qtd',k:'q',r:true},{t:'Margem',k:'m',r:true}],
+        cats.map(c=>({c:esc(c.categoria), v:R0(c.venda),
+          p:P(v.venda?c.venda/v.venda*100:0), q:N(c.qtd), m:P(c.margem_pct)}))),
+        'onde este vendedor faz o resultado dele')
+    : `<div class="bloco"><div class="vazio"><b>${esc(nome)} — sem quebra por categoria</b>
+        O coletor precisa da consulta de vendedor por categoria. Rode a coleta completa.</div></div>`;
   alvo.scrollIntoView({behavior:'smooth', block:'nearest'});
 });
 
